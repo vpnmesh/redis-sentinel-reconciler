@@ -133,6 +133,23 @@ func TestParseConfig_TLSCAFile(t *testing.T) {
 	}
 }
 
+func TestParseConfig_SentinelRedisAuth(t *testing.T) {
+	cfg, err := parseConfig([]string{
+		"--sentinel-addr=127.0.0.1:26379",
+		"--redis-addrs=10.0.0.1:6379",
+		"--redis-username=probe",
+		"--redis-password=probe-pass",
+		"--sentinel-redis-username=sentinel",
+		"--sentinel-redis-password=repl-pass",
+	}, getenvMap(nil), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.RedisUsername != "probe" || cfg.SentinelRedisUsername != "sentinel" || cfg.SentinelRedisPassword != "repl-pass" {
+		t.Fatalf("%#v", cfg)
+	}
+}
+
 func TestParseConfig_Help(t *testing.T) {
 	var buf bytes.Buffer
 	_, err := parseConfig([]string{"-h"}, getenvMap(nil), &buf)
@@ -140,7 +157,7 @@ func TestParseConfig_Help(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 	help := buf.String()
-	for _, want := range []string{"-tls", "-redis-username", "-sentinel-username", "-config"} {
+	for _, want := range []string{"-tls", "-redis-username", "-sentinel-username", "-sentinel-redis-username", "-config"} {
 		if !strings.Contains(help, want) {
 			t.Errorf("help missing %s\n%s", want, help)
 		}

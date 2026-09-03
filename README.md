@@ -50,6 +50,10 @@ for the local Sentinel and for every Redis seed (port 6379, not 26379).
 
 Leave `APPLY=false` until you have watched it. The unit runs
 `/usr/bin/reconciler --config /etc/default/redis-sentinel-reconciler --local-sentinel`.
+With stock defaults, `APPLY=true` on **every** sidecar is the intended
+heal: a stale local ad of a live replica is `REMOVE`+`MONITOR` onto the
+unique writable oracle (no `sentinel.conf` rewrite, no per-host escalate
+off). Dual writable still refuses both FAILOVER and MONITOR.
 
 ```bash
 sudo systemctl enable --now redis-sentinel-reconciler

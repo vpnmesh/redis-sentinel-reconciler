@@ -19,7 +19,9 @@ EQUAL_EPOCH_ESCALATE=true
 # 9123 avoids the usual node_exporter :9090 collision. Leave empty to disable.
 METRICS_ADDR=127.0.0.1:9123
 
-# Dedicated sidecar user, not the app ACL user. See docs/configuration.md.
+# Probe user (ROLE + SET rsr:probe). Sentinel→Redis auth can be different:
+# SENTINEL_REDIS_USERNAME=sentinel
+# SENTINEL_REDIS_PASSWORD=
 # REDIS_USERNAME=rsr
 # REDIS_PASSWORD="p$a#ss word"
 # SENTINEL_USERNAME=rsr
