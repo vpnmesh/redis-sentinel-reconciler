@@ -64,17 +64,21 @@ single island “to clear the alert”.
 
 Two Sentinels advertise different masters with the same `config-epoch`.
 Hello from the peer is ignored, so the lie never heals itself. Logs:
-`equal_epoch_trap`. If FAILOVER would promote the wrong node,
-`equal_epoch_escalate` and MONITOR is refused.
+`equal_epoch_trap`.
 
-Promote-safe `SENTINEL FAILOVER` on the lying local Sentinel is the
-intended fix (new epoch). FAILOVER is refused when the advertised address
-is a **live slave** (even if flags say `s_down,master`) or a live writable
-that is not the oracle — that promote would pick the wrong replica.
-It is **not** gated on “oracle already matches majority ads”: when the
-majority is the lie, that rule would freeze the heal. If FAILOVER is
-unsafe, stop. Do not loop `REMOVE`+`MONITOR`. Edit `sentinel.conf` by
-hand (next section) or wait for stock Sentinel if it can still elect.
+FAILOVER is still refused when the advertised address is a **live slave**
+(even if flags say `s_down,master`) or a live writable that is not the
+oracle. FAILOVER unsafe is **not** the same as MONITOR unsafe.
+
+When there is exactly one writable oracle and the local ad is a live
+replica (stale `s_down,master`), APPLY with default
+`--equal-epoch-escalate=true` does `REMOVE`+`MONITOR` onto that oracle
+and re-binds Sentinel→Redis auth. That does not need a new config-epoch.
+The other sidecars noop. Operators should not turn escalate off for this.
+
+Escalate + refuse MONITOR still applies when FAILOVER was skipped for
+any other reason (extra live writable, unknown promote risk). Dual
+writable never FAILOVER and never MONITOR.
 
 Keep client write-probes up until ads agree.
 
@@ -107,7 +111,7 @@ process already refuses; do not override them.
 | H6 | Stock failover already in progress | Fight the election |
 | H7 | MONITOR without re-binding auth-user/auth-pass | Sentinel cannot talk to Redis |
 | H8 | MONITOR a fake / unreachable IP | Client blackhole |
-| H9 | Equal epoch, disagreeing ads | Oscillating ads |
+| H9 | Equal epoch, FAILOVER skip is not a live-replica stale ad | MONITOR-thrash / epoch fight |
 | H10 | `--apply` without `--local-sentinel` | Every sidecar heals at once |
 
 `make e2e-hazards` walks H1–H10 in the lab.

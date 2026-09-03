@@ -48,6 +48,8 @@ func parseConfig(args []string, getenv getenvFunc, errOut io.Writer) (reconcile.
 	sentinelPassword := fs.String("sentinel-password", envOr(getenv, "", "RSR_SENTINEL_PASSWORD", "SENTINEL_PASSWORD"), "Sentinel ACL/password")
 	redisUsername := fs.String("redis-username", envOr(getenv, "", "RSR_REDIS_USERNAME", "REDIS_USERNAME"), "Redis ACL username (default user if empty)")
 	sentinelUsername := fs.String("sentinel-username", envOr(getenv, "", "RSR_SENTINEL_USERNAME", "SENTINEL_USERNAME"), "Sentinel ACL username")
+	sentinelRedisUsername := fs.String("sentinel-redis-username", envOr(getenv, "", "RSR_SENTINEL_REDIS_USERNAME", "SENTINEL_REDIS_USERNAME"), "SENTINEL SET auth-user after MONITOR (default: --redis-username)")
+	sentinelRedisPassword := fs.String("sentinel-redis-password", envOr(getenv, "", "RSR_SENTINEL_REDIS_PASSWORD", "SENTINEL_REDIS_PASSWORD"), "SENTINEL SET auth-pass after MONITOR (default: --redis-password)")
 	localSentinel := fs.Bool("local-sentinel", envBool(getenv, false, "RSR_LOCAL_SENTINEL", "LOCAL_SENTINEL"), "Only check/heal first --sentinel-addr (required with --apply)")
 	quorum := fs.Int("quorum", envInt(getenv, 2, "RSR_QUORUM", "QUORUM"), "Quorum for SENTINEL MONITOR fallback")
 	healCooldown := fs.Duration("heal-cooldown", envDuration(getenv, 15*time.Minute, "RSR_HEAL_COOLDOWN", "HEAL_COOLDOWN"), "Min time between heal attempts (0 disables)")
@@ -58,7 +60,7 @@ func parseConfig(args []string, getenv getenvFunc, errOut io.Writer) (reconcile.
 	metricsAddr := fs.String("metrics-addr", envOr(getenv, "", "RSR_METRICS_ADDR", "METRICS_ADDR"), "If set, serve Prometheus text metrics (e.g. 127.0.0.1:9123)")
 	healLease := fs.Bool("heal-lease", envBool(getenv, true, "RSR_HEAL_LEASE", "HEAL_LEASE"), "Acquire Redis NX heal lease on oracle before apply")
 	healLeaseTTL := fs.Duration("heal-lease-ttl", envDuration(getenv, 0, "RSR_HEAL_LEASE_TTL"), "Lease TTL (default: --heal-cooldown or 15m)")
-	equalEpochEsc := fs.Bool("equal-epoch-escalate", envBool(getenv, true, "RSR_EQUAL_EPOCH_ESCALATE", "EQUAL_EPOCH_ESCALATE"), "On equal-epoch trap without safe FAILOVER, refuse MONITOR")
+	equalEpochEsc := fs.Bool("equal-epoch-escalate", envBool(getenv, true, "RSR_EQUAL_EPOCH_ESCALATE", "EQUAL_EPOCH_ESCALATE"), "Under equal-epoch, refuse MONITOR unless FAILOVER was skipped for a stale live-replica ad")
 	leaseHolder := fs.String("lease-holder", envOr(getenv, "", "RSR_LEASE_HOLDER"), "Stable lease holder id (default hostname)")
 	tlsOn := fs.Bool("tls", envBool(getenv, false, "RSR_TLS"), "Use TLS for Redis and Sentinel")
 	tlsSkip := fs.Bool("tls-skip-verify", envBool(getenv, false, "RSR_TLS_SKIP_VERIFY", "TLS_SKIP_VERIFY"), "Skip TLS certificate verify (lab / IP-only certs)")
@@ -116,6 +118,8 @@ func parseConfig(args []string, getenv getenvFunc, errOut io.Writer) (reconcile.
 		SentinelPassword:         *sentinelPassword,
 		RedisUsername:            *redisUsername,
 		SentinelUsername:         *sentinelUsername,
+		SentinelRedisUsername:    *sentinelRedisUsername,
+		SentinelRedisPassword:    *sentinelRedisPassword,
 		RedisAddrs:               redisAddrs,
 		LocalSentinel:            *localSentinel,
 		Quorum:                   *quorum,

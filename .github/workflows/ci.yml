@@ -25,4 +25,5 @@ jobs:
           grep -E -- '-tls$' /tmp/rsr-help.txt
           grep -- '-redis-username' /tmp/rsr-help.txt
           grep -- '-sentinel-username' /tmp/rsr-help.txt
+          grep -- '-sentinel-redis-username' /tmp/rsr-help.txt
           grep -- '-config' /tmp/rsr-help.txt

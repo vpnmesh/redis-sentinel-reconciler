@@ -39,7 +39,7 @@ var counterDefs = []counterDef{
 	{"alert_no_writable_total", "Ticks with zero writable Redis masters on the seed list."},
 	{"alert_dual_master_total", "Ticks with two or more writable Redis masters."},
 	{"alert_equal_epoch_trap_total", "Ticks that detected equal config-epoch and disagreeing ads."},
-	{"alert_equal_epoch_escalate_total", "Ticks that refused MONITOR because FAILOVER was unsafe under equal-epoch."},
+	{"alert_equal_epoch_escalate_total", "Ticks that refused MONITOR under equal-epoch when FAILOVER was unsafe for a reason other than a stale live-replica advertisement."},
 }
 
 var gaugeDefs = []gaugeDef{

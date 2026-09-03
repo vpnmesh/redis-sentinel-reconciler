@@ -42,14 +42,18 @@ type Config struct {
 	// R9/R10 product readiness.
 	HealLease          bool          // acquire Redis NX lease before apply heal
 	HealLeaseTTL       time.Duration // default = HealCooldown or 15m
-	EqualEpochEscalate bool          // if equal-epoch trap and FAILOVER unsafe -> refuse MONITOR
+	EqualEpochEscalate bool          // refuse MONITOR under equal-epoch when FAILOVER skip is not a live-replica stale ad
 	LeaseHolder        string        // optional stable id (default hostname)
 
 	RedisUsername    string
 	SentinelUsername string
-	TLS              *tls.Config
-	TLSCAFile        string
-	TLSServerName    string
+	// SentinelRedisUsername / SentinelRedisPassword are SENTINEL SET auth-user /
+	// auth-pass after MONITOR (Sentinel→Redis). Empty = probe Redis user/password.
+	SentinelRedisUsername string
+	SentinelRedisPassword string
+	TLS                   *tls.Config
+	TLSCAFile             string
+	TLSServerName         string
 }
 
 // Reconciler runs the periodic control loop.
@@ -58,6 +62,8 @@ type Reconciler struct {
 	log      *slog.Logger
 	lastHeal time.Time
 	metrics  *Metrics
+	// writeProbe, if set, replaces the post-heal Redis write check (tests).
+	writeProbe func(ctx context.Context, masterKey string) error
 }
 
 // New returns a configured Reconciler.
@@ -373,9 +379,34 @@ func (r *Reconciler) tick(ctx context.Context) error {
 }
 
 // healAPI: API-only (no conf rewrite / no process restart).
-func (r *Reconciler) healAPI(ctx context.Context, c *sentinel.Client, advertised, masterKey string, nodes []oracle.NodeResult, flags string, equalEpochTrap bool) {
-	r.lastHeal = time.Now() // count attempts toward cooldown (H5)
-	r.metrics.Inc("heal_attempt")
+func (r *Reconciler) healAPI(ctx context.Context, c sentinelHealClient, advertised, masterKey string, nodes []oracle.NodeResult, flags string, equalEpochTrap bool) {
+	_, writableCount := oracle.ClassifyWritable(nodes)
+	safe, why := failoverPromoteSafe(advertised, masterKey, flags, nodes)
+	plan := planApplyHeal(writableCount, safe, why, equalEpochTrap, r.cfg.EqualEpochEscalate)
+	r.log.Info("apply heal plan",
+		"sentinel", c.Addr(),
+		"action", string(plan.Action),
+		"failover_safe", safe,
+		"reason", plan.Reason,
+		"failover_skip_reason", why,
+		"advertised", advertised,
+		"oracle", masterKey,
+		"flags", flags,
+		"equal_epoch_trap", equalEpochTrap,
+		"writable_count", writableCount,
+	)
+
+	if plan.Action == actionRefuse {
+		if plan.Reason == reasonEqualEpochEscalate {
+			r.log.Error("ALERT", "reason", "equal_epoch_escalate",
+				"hint", "FAILOVER unsafe for a reason that is not a stale live-replica ad; MONITOR refused",
+				"failover_skip_reason", why,
+			)
+			r.metrics.Inc("alert_equal_epoch_escalate")
+		}
+		r.refuseApply(plan.Reason, "failover_skip_reason", why)
+		return
+	}
 
 	oracleIP, oraclePort, err := endpointIPPort(masterKey)
 	if err != nil {
@@ -384,23 +415,15 @@ func (r *Reconciler) healAPI(ctx context.Context, c *sentinel.Client, advertised
 		return
 	}
 
-	safe, why := failoverPromoteSafe(advertised, masterKey, flags, nodes)
-	r.log.Info("apply heal plan",
-		"sentinel", c.Addr(),
-		"failover_safe", safe,
-		"reason", why,
-		"advertised", advertised,
-		"oracle", masterKey,
-		"flags", flags,
-		"equal_epoch_trap", equalEpochTrap,
-	)
+	r.lastHeal = time.Now() // count attempts toward cooldown (H5)
+	r.metrics.Inc("heal_attempt")
 
-	if safe {
+	if plan.Action == actionFailover {
 		r.log.Info("apply heal starting", "action", "SENTINEL FAILOVER", "sentinel", c.Addr())
 		if err := c.Failover(ctx, r.cfg.MasterName); err != nil {
 			r.log.Warn("FAILOVER failed, trying REMOVE+MONITOR", "err", err)
 		} else {
-			time.Sleep(2 * time.Second)
+			r.pause(2 * time.Second)
 			if r.verifyHeal(ctx, c, masterKey) {
 				r.log.Info("heal succeeded", "action", "SENTINEL FAILOVER", "sentinel", c.Addr(), "master", masterKey)
 				r.metrics.Inc("heal_ok")
@@ -410,16 +433,6 @@ func (r *Reconciler) healAPI(ctx context.Context, c *sentinel.Client, advertised
 		}
 	} else {
 		r.log.Info("skip FAILOVER (promote guard)", "reason", why)
-		// R9: equal-epoch without safe FAILOVER -> escalate (do not MONITOR-thrash).
-		if equalEpochTrap && r.cfg.EqualEpochEscalate {
-			r.log.Error("ALERT", "reason", "equal_epoch_escalate",
-				"hint", "FAILOVER unsafe; MONITOR will not bump epoch - conf+restart Owner GO or wait stock",
-				"failover_skip_reason", why,
-			)
-			r.metrics.Inc("alert_equal_epoch_escalate")
-			r.refuseApply("equal_epoch_escalate", "failover_skip_reason", why)
-			return
-		}
 	}
 
 	r.log.Info("apply heal starting", "action", "SENTINEL REMOVE+MONITOR", "sentinel", c.Addr(), "ip", oracleIP, "port", oraclePort)
@@ -429,24 +442,30 @@ func (r *Reconciler) healAPI(ctx context.Context, c *sentinel.Client, advertised
 		r.metrics.Inc("heal_fail")
 		return
 	}
-	// H7: re-bind auth after MONITOR (Sentinel drops auth-* on REMOVE).
-	for _, kv := range sentinelAuthAfterMonitor(r.cfg.RedisUsername, r.cfg.RedisPassword) {
+	authUser, authPass := sentinelMasterAuth(r.cfg.RedisUsername, r.cfg.RedisPassword, r.cfg.SentinelRedisUsername, r.cfg.SentinelRedisPassword)
+	for _, kv := range sentinelAuthAfterMonitor(authUser, authPass) {
 		if err := c.Set(ctx, r.cfg.MasterName, kv[0], kv[1]); err != nil {
 			r.log.Warn("SENTINEL SET failed", "option", kv[0], "err", err)
 		} else {
 			r.log.Info("re-bound sentinel " + kv[0] + " after MONITOR")
 		}
 	}
-	time.Sleep(1 * time.Second)
+	r.pause(1 * time.Second)
 	if r.verifyHeal(ctx, c, masterKey) {
 		r.log.Info("heal succeeded", "action", "SENTINEL REMOVE+MONITOR", "sentinel", c.Addr(), "master", masterKey)
 		r.metrics.Inc("heal_ok")
 		return
 	}
 
+	if plan.Reason == reasonLiveNonOracle {
+		r.log.Error("heal failed", "sentinel", c.Addr(), "oracle", masterKey, "conf_fallback_needed", true)
+		r.metrics.Inc("heal_fail")
+		return
+	}
+
 	r.log.Info("apply heal starting", "action", "SENTINEL RESET", "sentinel", c.Addr())
 	_ = c.Reset(ctx, r.cfg.MasterName)
-	time.Sleep(2 * time.Second)
+	r.pause(2 * time.Second)
 	if r.verifyHeal(ctx, c, masterKey) {
 		r.log.Info("heal succeeded", "action", "SENTINEL RESET", "sentinel", c.Addr(), "master", masterKey)
 		r.metrics.Inc("heal_ok")
@@ -457,19 +476,19 @@ func (r *Reconciler) healAPI(ctx context.Context, c *sentinel.Client, advertised
 	r.metrics.Inc("heal_fail")
 }
 
-func (r *Reconciler) verifyHeal(ctx context.Context, c *sentinel.Client, masterKey string) bool {
+func (r *Reconciler) verifyHeal(ctx context.Context, c sentinelHealClient, masterKey string) bool {
 	if !r.verifyAdvertised(ctx, c, masterKey) {
 		return false
 	}
 	// H8: advertised OK is not enough - oracle must still accept writes.
-	if err := reprobeOracleWritable(ctx, masterKey, r.redisDial()); err != nil {
+	if err := r.probeOracleWritable(ctx, masterKey); err != nil {
 		r.log.Warn("heal verify write-probe failed", "err", err)
 		return false
 	}
 	return true
 }
 
-func (r *Reconciler) verifyAdvertised(ctx context.Context, c *sentinel.Client, masterKey string) bool {
+func (r *Reconciler) verifyAdvertised(ctx context.Context, c sentinelHealClient, masterKey string) bool {
 	host, port, err := c.GetMasterAddrByName(ctx, r.cfg.MasterName)
 	if err != nil {
 		r.log.Warn("heal verify get-master-addr failed", "err", err)
@@ -494,6 +513,20 @@ func sentinelAuthAfterMonitor(username, password string) [][2]string {
 		out = append(out, [2]string{"auth-pass", password})
 	}
 	return out
+}
+
+func (r *Reconciler) pause(d time.Duration) {
+	if r.writeProbe != nil {
+		return
+	}
+	time.Sleep(d)
+}
+
+func (r *Reconciler) probeOracleWritable(ctx context.Context, masterKey string) error {
+	if r.writeProbe != nil {
+		return r.writeProbe(ctx, masterKey)
+	}
+	return reprobeOracleWritable(ctx, masterKey, r.redisDial())
 }
 
 // failoverPromoteSafe: only FAILOVER when it is likely to land on oracle M (H4).

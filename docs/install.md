@@ -61,7 +61,7 @@ make dist          # tarball + deb into dist/
 it when you need a specific Debian upstream version:
 
 ```bash
-VERSION=0.1.1 ./scripts/package-linux-amd64.sh
+VERSION=0.1.2 ./scripts/package-linux-amd64.sh
 ```
 
 Needs Go 1.23+, and `dpkg-deb` for the `.deb` (any Debian/Ubuntu builder).
@@ -75,8 +75,8 @@ tag (linux/amd64) and attaches them to the release, plus `sha256sums.txt`.
 `workflow_dispatch` builds the same artifacts without publishing.
 
 ```bash
-git tag v0.1.1
-git push origin v0.1.1
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 CI on pull requests is `.github/workflows/ci.yml` (`go test` / `go vet` /

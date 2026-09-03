@@ -79,6 +79,14 @@ spec:
             - name: RSR_SENTINEL_USERNAME
               value: {{ .Values.auth.sentinelUsername | quote }}
             {{- end }}
+            {{- if .Values.auth.sentinelRedisUsername }}
+            - name: RSR_SENTINEL_REDIS_USERNAME
+              value: {{ .Values.auth.sentinelRedisUsername | quote }}
+            {{- end }}
+            {{- if .Values.auth.sentinelRedisPassword }}
+            - name: RSR_SENTINEL_REDIS_PASSWORD
+              value: {{ .Values.auth.sentinelRedisPassword | quote }}
+            {{- end }}
           ports:
             {{- if .Values.metrics.enabled }}
             - name: metrics

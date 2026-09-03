@@ -34,6 +34,7 @@ HELP="$("$BIN" -h 2>&1 || true)"
 echo "$HELP" | grep -E -- '-tls$' >/dev/null
 echo "$HELP" | grep -- '-redis-username' >/dev/null
 echo "$HELP" | grep -- '-sentinel-username' >/dev/null
+echo "$HELP" | grep -- '-sentinel-redis-username' >/dev/null
 
 install -m 0644 README.md "$OUT/stage/${TARBALL_STEM}/README.md"
 install -d "$OUT/stage/${TARBALL_STEM}/systemd"

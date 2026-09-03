@@ -1,6 +1,6 @@
 image:
   repository: redis-sentinel-reconciler
-  tag: "0.1.0"
+  tag: "0.1.2"
   pullPolicy: IfNotPresent
 
 # Observe by default. Flip apply=true only after a soak + Owner GO.
@@ -25,6 +25,9 @@ auth:
   sentinelUsername: ""
   redisPassword: ""
   sentinelPassword: ""
+  # SENTINEL SET auth-* after MONITOR. Empty = probe redisUsername/Password.
+  sentinelRedisUsername: ""
+  sentinelRedisPassword: ""
 
 tls:
   enabled: false

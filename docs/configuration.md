@@ -72,11 +72,21 @@ ticks, not because the lab went green.
 | `--sentinel-password` | `RSR_SENTINEL_PASSWORD` / `SENTINEL_PASSWORD` |
 | `--redis-username` | `RSR_REDIS_USERNAME` / `REDIS_USERNAME` |
 | `--sentinel-username` | `RSR_SENTINEL_USERNAME` / `SENTINEL_USERNAME` |
+| `--sentinel-redis-username` | `RSR_SENTINEL_REDIS_USERNAME` / `SENTINEL_REDIS_USERNAME` |
+| `--sentinel-redis-password` | `RSR_SENTINEL_REDIS_PASSWORD` / `SENTINEL_REDIS_PASSWORD` |
 
-Empty username is Redis `default` (`AUTH password`). After a
-`REMOVE`+`MONITOR` heal, the process re-binds `SENTINEL SET <name> auth-user`
-when `--redis-username` is set, and `auth-pass` when `--redis-password` is
-set. ACL clusters break if only the password is restored.
+Empty username is Redis `default` (`AUTH password`).
+
+Two credential planes:
+
+| Who | Flags | Needs |
+|-----|--------|--------|
+| This process → Redis (ROLE, `SET rsr:probe`, heal lease) | `--redis-username` / `--redis-password` | Often `ROLE` (`@dangerous`) + `SET` on `rsr:*` |
+| Sentinel → Redis (replication / master auth after MONITOR) | `--sentinel-redis-username` / `--sentinel-redis-password` | Whatever `sentinel monitor` uses (`sentinel` ACL user is typical: `+replicaof` `+role`, **not** `SET`) |
+
+If `--sentinel-redis-*` are unset, MONITOR re-bind falls back to the probe Redis user/password. That is wrong when the probe user is `default`/`+@all` and Sentinel should use a tighter replication user.
+
+After `REMOVE`+`MONITOR`, the process always re-binds `SENTINEL SET auth-user` / `auth-pass` from the Sentinel→Redis pair (or the probe fallback). ACL clusters break if only the password is restored.
 
 Use a **dedicated sidecar user**, not the application user.
 
@@ -130,7 +140,7 @@ on disk yet. Switch to `--tls-ca-file` once you do.
 |------|---------|-----|
 | `--heal-cooldown` | `15m` | Do not heal in a loop. |
 | `--heal-lease` | `true` | One apply at a time (`rsr:heal-lease:<name>` on the oracle). |
-| `--equal-epoch-escalate` | `true` | Do not `MONITOR`-thrash when epochs are equal and FAILOVER is unsafe. |
+| `--equal-epoch-escalate` | `true` | Under equal-epoch, refuse MONITOR unless FAILOVER was skipped because the advertised node is a **live replica** (stale ad). That case MONITOR's the unique writable oracle. |
 | `--min-reachable-redis` | `0` (auto: 2 if you listed ≥3 seeds) | Refuse apply from a tiny island. |
 | `--skip-on-failover-in-progress` | `true` | Do not fight a stock election. |
 | `--quorum` | `2` | Used only for `SENTINEL MONITOR` fallback. |
@@ -160,6 +170,8 @@ RSR_TLS=true
 RSR_TLS_CA_FILE=/etc/redis/ca.pem
 REDIS_USERNAME=rsr
 REDIS_PASSWORD="p$a#ss word"
+SENTINEL_REDIS_USERNAME=sentinel
+SENTINEL_REDIS_PASSWORD="..."
 SENTINEL_USERNAME=rsr
 SENTINEL_PASSWORD="..."
 ```

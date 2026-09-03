@@ -36,7 +36,7 @@ func TestPreflightCooldown(t *testing.T) {
 	r := New(Config{
 		Apply:                    true,
 		LocalSentinel:            true,
-		HealCooldown:               time.Hour,
+		HealCooldown:             time.Hour,
 		SkipOnFailoverInProgress: true,
 		RedisAddrs:               []string{"10.0.0.1:6379", "10.0.0.2:6379", "10.0.0.3:6379"},
 	}, nil)
@@ -55,7 +55,7 @@ func TestPreflightPartitionSuspect(t *testing.T) {
 	r := New(Config{
 		Apply:             true,
 		LocalSentinel:     true,
-		HealCooldown:        0,
+		HealCooldown:      0,
 		MinReachableRedis: 2,
 		RedisAddrs:        []string{"10.0.0.1:6379", "10.0.0.2:6379", "10.0.0.3:6379"},
 	}, nil)
@@ -74,7 +74,7 @@ func TestPreflightRequireLocal(t *testing.T) {
 		Apply:            true,
 		LocalSentinel:    false,
 		AllowGlobalApply: false,
-		HealCooldown:      0,
+		HealCooldown:     0,
 	}, nil)
 	if r.preflightApply("master", nil) {
 		t.Fatal("expected apply_requires_local_sentinel")
