@@ -1,0 +1,7 @@
+### R15_epoch 2026-08-09T10:20:54Z
+
+path=/home/efremov/myprojects/vpnmesh/redis-sentinel-reconciler/docs/runbooks/equal-epoch.md
+4:**Class:** vpnmesh de-n1 - peer Hello ignored when `config-epoch` equal and master IP differs.
+8:- Metric/log `equal_epoch_trap` (disagreeing ads, one shared epoch).  
+9:- `equal_epoch_escalate` = FAILOVER unsafe and MONITOR refused (default `--equal-epoch-escalate`).
+14:2. If escalate: **do not** thrash `REMOVE+MONITOR`. Open Owner ticket for **conf+restart escape** ([conf-escape.md](../CONF-ESCAPE.md)): bump `config-epoch` to `max+1`, point monitor at oracle, restart Sentinel.  

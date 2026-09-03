@@ -1,0 +1,452 @@
+./lab/e2e/readiness/run.sh
+[11:03:53] === PRODUCT-READINESS live verify (R1-R22) ===
+[11:03:53] evidence -> /home/efremov/myprojects/vpnmesh/redis-sentinel-reconciler/lab/e2e/artifacts/readiness
+[11:03:53] ensuring lab is up (5 Redis + 5 Sentinel, quorum=3)...
+[11:03:53] E2E_RESET=1 - compose down -v for clean topology
+ Container lab-redis-5-1 Stopping 
+ Container lab-writer-1 Stopping 
+ Container lab-reconciler-4-1 Stopping 
+ Container lab-reconciler-1-1 Stopping 
+ Container lab-reconciler-2-1 Stopping 
+ Container lab-redis-2-1 Stopping 
+ Container lab-reconciler-3-1 Stopping 
+ Container lab-reconciler-5-1 Stopping 
+ Container lab-redis-4-1 Stopping 
+ Container lab-redis-3-1 Stopping 
+ Container lab-reconciler-4-1 Stopped 
+ Container lab-reconciler-4-1 Removing 
+ Container lab-reconciler-1-1 Stopped 
+ Container lab-reconciler-1-1 Removing 
+ Container lab-reconciler-3-1 Stopped 
+ Container lab-reconciler-3-1 Removing 
+ Container lab-reconciler-5-1 Stopped 
+ Container lab-reconciler-5-1 Removing 
+ Container lab-reconciler-2-1 Stopped 
+ Container lab-reconciler-2-1 Removing 
+ Container lab-reconciler-2-1 Removed 
+ Container lab-reconciler-5-1 Removed 
+ Container lab-reconciler-1-1 Removed 
+ Container lab-reconciler-4-1 Removed 
+ Container lab-reconciler-3-1 Removed 
+ Container lab-writer-1 Stopped 
+ Container lab-writer-1 Removing 
+ Container lab-writer-1 Removed 
+ Container lab-sentinel-2-1 Stopping 
+ Container lab-sentinel-4-1 Stopping 
+ Container lab-sentinel-3-1 Stopping 
+ Container lab-sentinel-5-1 Stopping 
+ Container lab-sentinel-1-1 Stopping 
+ Container lab-redis-5-1 Stopped 
+ Container lab-redis-5-1 Removing 
+ Container lab-redis-5-1 Removed 
+ Container lab-redis-4-1 Stopped 
+ Container lab-redis-4-1 Removing 
+ Container lab-redis-4-1 Removed 
+ Container lab-redis-2-1 Stopped 
+ Container lab-redis-2-1 Removing 
+ Container lab-redis-2-1 Removed 
+ Container lab-sentinel-2-1 Stopped 
+ Container lab-sentinel-2-1 Removing 
+ Container lab-sentinel-2-1 Removed 
+ Container lab-sentinel-5-1 Stopped 
+ Container lab-sentinel-5-1 Removing 
+ Container lab-sentinel-5-1 Removed 
+ Container lab-sentinel-3-1 Stopped 
+ Container lab-sentinel-3-1 Removing 
+ Container lab-sentinel-3-1 Removed 
+ Container lab-sentinel-1-1 Stopped 
+ Container lab-sentinel-1-1 Removing 
+ Container lab-sentinel-1-1 Removed 
+ Container lab-sentinel-4-1 Stopped 
+ Container lab-sentinel-4-1 Removing 
+ Container lab-sentinel-4-1 Removed 
+ Container lab-redis-3-1 Stopped 
+ Container lab-redis-3-1 Removing 
+ Container lab-redis-3-1 Removed 
+ Container lab-redis-1-1 Stopping 
+ Container lab-redis-1-1 Stopped 
+ Container lab-redis-1-1 Removing 
+ Container lab-redis-1-1 Removed 
+ Network redis-sentinel-lab Removing 
+ Network redis-sentinel-lab Removed 
+ Image lab-reconciler-1 Building 
+ Image lab-reconciler-3 Building 
+ Image lab-reconciler-4 Building 
+ Image lab-writer Building 
+ Image lab-reconciler-2 Building 
+ Image lab-reconciler-5 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 3.05kB done
+#1 DONE 0.0s
+
+#2 [reconciler-5 internal] load build definition from Dockerfile
+#2 transferring dockerfile: 426B done
+#2 DONE 0.0s
+
+#3 [writer internal] load build definition from Dockerfile.writer
+#3 transferring dockerfile: 413B done
+#3 DONE 0.0s
+
+#4 [writer] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#4 ...
+
+#5 [auth] docker/dockerfile:pull token for registry-1.docker.io
+#5 DONE 0.0s
+
+#4 [writer] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#4 DONE 1.7s
+
+#6 [writer] docker-image://docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+#6 resolve docker.io/docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 0.0s done
+#6 CACHED
+
+#7 [reconciler-1 internal] load metadata for docker.io/library/alpine:3.20
+#7 ...
+
+#8 [auth] library/alpine:pull token for registry-1.docker.io
+#8 DONE 0.0s
+
+#9 [reconciler-5 internal] load metadata for docker.io/library/golang:1.23-alpine
+#9 ...
+
+#10 [auth] library/golang:pull token for registry-1.docker.io
+#10 DONE 0.0s
+
+#7 [reconciler-1 internal] load metadata for docker.io/library/alpine:3.20
+#7 DONE 0.9s
+
+#9 [reconciler-5 internal] load metadata for docker.io/library/golang:1.23-alpine
+#9 DONE 1.3s
+
+#11 [reconciler-3 internal] load .dockerignore
+#11 transferring context: 2B done
+#11 DONE 0.0s
+
+#12 [reconciler-4 stage-1 1/3] FROM docker.io/library/alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
+#12 resolve docker.io/library/alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc 0.0s done
+#12 DONE 0.0s
+
+#13 [reconciler-4 build 1/6] FROM docker.io/library/golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f
+#13 resolve docker.io/library/golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f 0.0s done
+#13 DONE 0.0s
+
+#14 [reconciler-5 internal] load build context
+#14 transferring context: 302.31kB 0.0s done
+#14 DONE 0.0s
+
+#15 [writer build 2/6] WORKDIR /src
+#15 CACHED
+
+#16 [writer build 3/6] COPY go.mod go.sum ./
+#16 CACHED
+
+#17 [reconciler-1 build 4/6] RUN go mod download
+#17 CACHED
+
+#18 [reconciler-4 build 5/6] COPY . .
+#18 DONE 0.0s
+
+#19 [reconciler-5 build 6/6] RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/reconciler ./cmd/reconciler
+#19 DONE 9.2s
+
+#20 [writer build 6/6] RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/writer ./cmd/writer
+#20 DONE 9.2s
+
+#21 [writer stage-1 3/3] COPY --from=build /out/writer /usr/local/bin/writer
+#21 CACHED
+
+#22 [reconciler-5 stage-1 2/3] RUN apk add --no-cache ca-certificates
+#22 CACHED
+
+#23 [reconciler-4 stage-1 3/3] COPY --from=build /out/reconciler /usr/local/bin/reconciler
+#23 DONE 0.0s
+
+#24 [writer] exporting to docker image format
+#24 exporting layers done
+#24 exporting manifest sha256:ffff09c2f5ff832ce767cdc2e5428b756e301a3db278b92281b89a700c800695 done
+#24 exporting config sha256:6f263751a90f88c3e717b48e2e4650df95ffb1b783a157e59da335952cf6b876 done
+#24 sending tarball 0.1s done
+#24 DONE 0.1s
+
+#25 importing to docker
+#25 DONE 0.0s
+
+#26 [writer] resolving provenance for metadata file
+#26 DONE 0.0s
+
+#27 [reconciler-4] exporting to docker image format
+#27 exporting layers 0.3s done
+#27 exporting manifest sha256:092ef4838cbef0941be1607593471a2f9ecf520069035b42251f202f306eff22 0.0s done
+#27 exporting config sha256:4dd99dc50506180d4b22da4da7c9ba6b2c7ce197b48b0ed770c686339ade8281 0.0s done
+#27 ...
+
+#28 [reconciler-1] exporting to docker image format
+#28 exporting layers 0.3s done
+#28 exporting manifest sha256:ab31c08c992bc8927b518c53d5e822c7fb3822401c6ad02d00836c9576d14ff0 0.0s done
+#28 exporting config sha256:b1d6d1fc867df7ec13a61079435f17d798475e0545f295c4778d4d82e089f620 0.0s done
+#28 sending tarball 0.4s done
+#28 DONE 0.7s
+
+#29 importing to docker
+#29 loading layer 3587891152eb 2.59MB / 2.59MB 0.1s done
+#29 DONE 0.1s
+
+#30 [reconciler-5] exporting to docker image format
+#30 exporting layers 0.3s done
+#30 exporting manifest sha256:9fcd18c2968c24c292223dfb0d9d0b4160364b098a244060bcab044b68f007bb 0.0s done
+#30 exporting config sha256:fde3059e52ea702737a51af64f02dcbca160e197070884d224f5d9dd2316d540 0.0s done
+#30 sending tarball 0.5s done
+#30 DONE 0.8s
+
+#31 importing to docker
+#31 loading layer 3587891152eb 2.59MB / 2.59MB 0.1s done
+#31 DONE 0.1s
+
+#32 [reconciler-2] exporting to docker image format
+#32 exporting layers 0.3s done
+#32 exporting manifest sha256:2a441f7b657b3b28f2019d8d0e170bc428fbbed37ed8dbbbfef065de888ead5c 0.0s done
+#32 exporting config sha256:85e1abc4900d4f1a5241b8b808663db208f1a77d1301e4232b033b3814741ca8 0.0s done
+#32 sending tarball 0.5s done
+#32 DONE 0.8s
+
+#33 importing to docker
+#33 loading layer 3587891152eb 2.59MB / 2.59MB 0.1s done
+#33 DONE 0.1s
+
+#34 [reconciler-3] exporting to docker image format
+#34 exporting layers 0.3s done
+#34 exporting manifest sha256:98faaace7296d71c393a687d080d9c4391ddcd598dbe3eaa61ab69e035074dc4 0.0s done
+#34 exporting config sha256:2d12431db16237d6b20f05924b4fc9da6eee7a1d173bf8334f618e96d567c2c5 0.0s done
+#34 sending tarball 0.5s done
+#34 DONE 0.8s
+
+#27 [reconciler-4] exporting to docker image format
+#27 sending tarball 0.5s done
+#27 DONE 0.8s
+
+#35 importing to docker
+#35 loading layer 3587891152eb 2.59MB / 2.59MB 0.1s done
+#35 DONE 0.1s
+
+#36 importing to docker
+#36 loading layer 3587891152eb 2.59MB / 2.59MB 0.1s done
+#36 DONE 0.1s
+
+#37 [reconciler-1] resolving provenance for metadata file
+#37 DONE 0.0s
+
+#38 [reconciler-2] resolving provenance for metadata file
+#38 DONE 0.0s
+
+#39 [reconciler-5] resolving provenance for metadata file
+#39 DONE 0.0s
+
+#40 [reconciler-4] resolving provenance for metadata file
+#40 DONE 0.0s
+
+#41 [reconciler-3] resolving provenance for metadata file
+#41 DONE 0.0s
+ Image lab-reconciler-1 Built 
+ Image lab-reconciler-3 Built 
+ Image lab-reconciler-5 Built 
+ Image lab-writer Built 
+ Image lab-reconciler-4 Built 
+ Image lab-reconciler-2 Built 
+ Network redis-sentinel-lab Creating 
+ Network redis-sentinel-lab Created 
+ Container lab-redis-1-1 Creating 
+ Container lab-redis-1-1 Created 
+ Container lab-sentinel-1-1 Creating 
+ Container lab-sentinel-5-1 Creating 
+ Container lab-sentinel-4-1 Creating 
+ Container lab-redis-2-1 Creating 
+ Container lab-redis-5-1 Creating 
+ Container lab-sentinel-3-1 Creating 
+ Container lab-redis-3-1 Creating 
+ Container lab-sentinel-2-1 Creating 
+ Container lab-redis-4-1 Creating 
+ Container lab-sentinel-5-1 Created 
+ Container lab-sentinel-4-1 Created 
+ Container lab-reconciler-4-1 Creating 
+ Container lab-reconciler-5-1 Creating 
+ Container lab-redis-5-1 Created 
+ Container lab-sentinel-1-1 Created 
+ Container lab-reconciler-1-1 Creating 
+ Container lab-redis-2-1 Created 
+ Container lab-redis-4-1 Created 
+ Container lab-sentinel-3-1 Created 
+ Container lab-reconciler-3-1 Creating 
+ Container lab-redis-3-1 Created 
+ Container lab-sentinel-2-1 Created 
+ Container lab-reconciler-2-1 Creating 
+ Container lab-writer-1 Creating 
+ Container lab-reconciler-4-1 Created 
+ Container lab-reconciler-5-1 Created 
+ Container lab-reconciler-1-1 Created 
+ Container lab-reconciler-3-1 Created 
+ Container lab-reconciler-2-1 Created 
+ Container lab-writer-1 Created 
+ Container lab-redis-1-1 Starting 
+ Container lab-redis-1-1 Started 
+ Container lab-redis-1-1 Waiting 
+ Container lab-redis-1-1 Waiting 
+ Container lab-redis-1-1 Waiting 
+ Container lab-redis-1-1 Waiting 
+ Container lab-redis-1-1 Waiting 
+ Container lab-redis-1-1 Waiting 
+ Container lab-redis-1-1 Waiting 
+ Container lab-redis-1-1 Waiting 
+ Container lab-redis-1-1 Waiting 
+ Container lab-redis-1-1 Healthy 
+ Container lab-sentinel-5-1 Starting 
+ Container lab-redis-1-1 Healthy 
+ Container lab-redis-4-1 Starting 
+ Container lab-redis-1-1 Healthy 
+ Container lab-sentinel-2-1 Starting 
+ Container lab-redis-1-1 Healthy 
+ Container lab-sentinel-1-1 Starting 
+ Container lab-redis-1-1 Healthy 
+ Container lab-redis-2-1 Starting 
+ Container lab-redis-1-1 Healthy 
+ Container lab-redis-3-1 Starting 
+ Container lab-redis-1-1 Healthy 
+ Container lab-redis-5-1 Starting 
+ Container lab-redis-1-1 Healthy 
+ Container lab-sentinel-4-1 Starting 
+ Container lab-redis-1-1 Healthy 
+ Container lab-sentinel-3-1 Starting 
+ Container lab-sentinel-3-1 Started 
+ Container lab-reconciler-3-1 Starting 
+ Container lab-redis-5-1 Started 
+ Container lab-redis-3-1 Started 
+ Container lab-sentinel-1-1 Started 
+ Container lab-reconciler-1-1 Starting 
+ Container lab-sentinel-5-1 Started 
+ Container lab-reconciler-5-1 Starting 
+ Container lab-sentinel-2-1 Started 
+ Container lab-reconciler-2-1 Starting 
+ Container lab-sentinel-4-1 Started 
+ Container lab-reconciler-4-1 Starting 
+ Container lab-writer-1 Starting 
+ Container lab-redis-2-1 Started 
+ Container lab-redis-4-1 Started 
+ Container lab-reconciler-3-1 Started 
+ Container lab-reconciler-1-1 Started 
+ Container lab-reconciler-5-1 Started 
+ Container lab-reconciler-2-1 Started 
+ Container lab-reconciler-4-1 Started 
+ Container lab-writer-1 Started 
+Waiting for Sentinel to report master for 'mymaster' (max 180s)...
+Master address:
+172.26.0.2
+6379
+[11:04:13] restore_steady_state...
+[11:04:24] restore_steady_state...
+[11:04:42] PASS: R1 dry-run would_heal; sentinel ad still fake; no heal
+[11:04:44] PASS: R2 CLI refuses --apply without --local-sentinel
+[11:04:44] restore_steady_state...
+[11:05:05] restore_steady_state...
+[11:05:32] restore_steady_state...
+[11:05:44] PASS: R3 dual+zero refuse; redis dual=2; no heal
+[11:05:44] restore_steady_state...
+[11:05:59] restore_steady_state...
+[11:06:11] PASS: R4 partition refuse; no heal
+[11:06:11] restore_steady_state...
+[11:06:31] restore_steady_state...
+[11:06:42] PASS: R5 oracle stayed master; sentinel ad->oracle
+[11:06:42] restore_steady_state...
+[11:07:12] PASS: R6 heal_cooldown/apply_refused in loop log
+[11:07:12] restore_steady_state...
+[11:07:23] restore_steady_state...
+[11:08:24] restore_steady_state...
+[11:08:29] demote extra master redis-5 -> 172.26.0.4
+[11:08:36] PASS: R7 election: no heal while master down + unit flag parse PASS
+[11:08:36] restore_steady_state...
+[11:08:44] SKIP: R8 - MONITOR path not taken this tick; TLS-ACL recipe present; healAPI SET auth-pass code exists
+[11:08:44] restore_steady_state...
+[11:08:49] restore_steady_state...
+[11:09:03] restore_steady_state...
+[11:09:08] FAIL: R9 - no equal_epoch evidence ad1=172.26.0.7 ad2=172.26.0.2
+[11:09:08] restore_steady_state...
+[11:09:16] FAIL: R10 - lease_val= ttl=-2
+[11:09:16] restore_steady_state...
+[11:09:21] restore_steady_state...
+[11:09:39] restore_steady_state...
+[11:09:50] PASS: R11 heal/oracle toward seed 172.26.0.2 not fake ad
+[11:09:50] restore_steady_state...
+ Container lab-reconciler-r12-3201164 Creating 
+ Container lab-reconciler-r12-3201164 Created 
+[11:10:11] PASS: R12 live /metrics diverge|would_heal + alert/grafana expr bind
+[11:10:11] restore_steady_state...
+[11:10:36] restore_steady_state...
+[11:10:47] PASS: R13 live requirepass: NOAUTH without pass; heal+SET with --redis-password
+[11:10:47] restore_steady_state...
+[11:11:00] FAIL: R14 - unit/boot/helm evidence incomplete helm_ok=0
+[11:11:00] restore_steady_state...
+[11:11:13] PASS: R15 runbooks ↔ live diverge/dual/kill-switch (+ equal-epoch ART)
+[11:11:15] restore_steady_state...
+[11:11:35] PASS: R16 observe→apply canary→kill-switch freeze (ads+logs)
+[11:11:35] restore_steady_state...
+[11:11:51] FAIL: R17 - writer contract evidence incomplete
+[11:11:51] restore_steady_state...
+[11:12:02] restore_steady_state...
+ Container lab-reconciler-r18-3201164 Creating 
+ Container lab-reconciler-r18-3201164 Created 
+[11:12:25] restore_steady_state...
+[11:12:37] PASS: R18 live metrics: dual_master + diverge/would_heal (SLO counters)
+[11:12:37] restore_steady_state...
+[11:12:50] SKIP: R19 - multi-tenant backlog (not implemented); single master-name live tick only
+[11:12:50] restore_steady_state...
+[11:13:00] PASS: R20 live Redis/go version matrix (syft not installed - SBOM CI residual)
+[11:13:00] restore_steady_state...
+[11:13:21] restore_steady_state...
+[11:13:32] FAIL: R21 - expected heal failed + conf_fallback_needed
+[11:13:32] restore_steady_state...
+[11:13:43] S3: dual_master stress - refuse apply
+[11:13:43] restore_steady_state...
+[11:14:07] restore_steady_state...
+[11:14:19] PASS: S3 dualx5 ticks -> refuse only (healed=0 refused=5)
+[11:14:19] restore_steady_state...
+redis-sentinel-reconciler lab e2e (5+5)
+time_utc=2026-08-09T11:14:29Z
+pass=15 fail=5 skip=2
+
+## results
+PASS|R1 dry-run would_heal; sentinel ad still fake; no heal
+PASS|R2 CLI refuses --apply without --local-sentinel
+PASS|R3 dual+zero refuse; redis dual=2; no heal
+PASS|R4 partition refuse; no heal
+PASS|R5 oracle stayed master; sentinel ad->oracle
+PASS|R6 heal_cooldown/apply_refused in loop log
+PASS|R7 election: no heal while master down + unit flag parse PASS
+SKIP|R8|MONITOR path not taken this tick; TLS-ACL recipe present; healAPI SET auth-pass code exists
+FAIL|R9|no equal_epoch evidence ad1=172.26.0.7 ad2=172.26.0.2
+FAIL|R10|lease_val= ttl=-2
+PASS|R11 heal/oracle toward seed 172.26.0.2 not fake ad
+PASS|R12 live /metrics diverge|would_heal + alert/grafana expr bind
+PASS|R13 live requirepass: NOAUTH without pass; heal+SET with --redis-password
+FAIL|R14|unit/boot/helm evidence incomplete helm_ok=0
+PASS|R15 runbooks ↔ live diverge/dual/kill-switch (+ equal-epoch ART)
+PASS|R16 observe→apply canary→kill-switch freeze (ads+logs)
+FAIL|R17|writer contract evidence incomplete
+PASS|R18 live metrics: dual_master + diverge/would_heal (SLO counters)
+SKIP|R19|multi-tenant backlog (not implemented); single master-name live tick only
+PASS|R20 live Redis/go version matrix (syft not installed - SBOM CI residual)
+FAIL|R21|expected heal failed + conf_fallback_needed
+PASS|S3 dualx5 ticks -> refuse only (healed=0 refused=5)
+
+## SPEC §5 coverage
+A|1 of 5 stale|matrix A
+B|4 stale / 1 correct; heal toward Redis|matrix B
+C|all 5 wrong; revive|matrix C
+D|partition island|matrix D
+E|dual writable never heal|T05 / matrix E
+F|no writable|matrix F
+G|stock failover|T02 / matrix G
+rejoin|Sentinel REPLICAOF demote|T04
+API-heal|REMOVE+MONITOR / FAILOVER|T07
+sidecar|1 reconciler per Sentinel|matrix H
+hazards|H1-H10 apply-worsens + guards|hazards/
+stress|short L1 flap/storm|stress/
+[11:14:29] summary -> /home/efremov/myprojects/vpnmesh/redis-sentinel-reconciler/lab/e2e/artifacts/SUMMARY-20260809T111429Z.txt
+make: *** [Makefile:41: e2e-readiness] Error 1

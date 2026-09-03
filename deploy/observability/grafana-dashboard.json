@@ -1,0 +1,31 @@
+{
+  "title": "Redis Sentinel Reconciler",
+  "uid": "rsr-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Diverge / heal",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "increase(redis_sentinel_reconciler_diverge[5m])", "legendFormat": "diverge" },
+        { "expr": "increase(redis_sentinel_reconciler_heal_ok[5m])", "legendFormat": "heal_ok" },
+        { "expr": "increase(redis_sentinel_reconciler_heal_fail[5m])", "legendFormat": "heal_fail" },
+        { "expr": "increase(redis_sentinel_reconciler_would_heal[5m])", "legendFormat": "would_heal" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Safety ALERTs",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "increase(redis_sentinel_reconciler_alert_dual_master[5m])", "legendFormat": "dual_master" },
+        { "expr": "increase(redis_sentinel_reconciler_alert_no_writable[5m])", "legendFormat": "no_writable" },
+        { "expr": "increase(redis_sentinel_reconciler_alert_equal_epoch_trap[5m])", "legendFormat": "equal_epoch_trap" },
+        { "expr": "increase(redis_sentinel_reconciler_apply_refused[5m])", "legendFormat": "apply_refused" }
+      ]
+    }
+  ]
+}

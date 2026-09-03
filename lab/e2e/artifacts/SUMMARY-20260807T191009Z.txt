@@ -1,0 +1,24 @@
+redis-sentinel-reconciler lab e2e (5+5)
+time_utc=2026-08-07T19:10:09Z
+pass=7 fail=1 skip=0
+
+## results
+PASS|SPEC-A 1/5 stale -> API heal local -> M
+PASS|SPEC-B 4 stale -> heal toward Redis oracle (not majority)
+PASS|SPEC-C all-5-wrong -> each local API heal -> M
+PASS|SPEC-D partition: main island keeps unique M; no invent on dark island
+FAIL|SPEC-E|missing dual_master ALERT; tail= Container lab-reconciler-run-37611985cb88 Created  {"time":"2026-08-07T19:07:00.215267841Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"sentinels":["sentinel-1:26379"]} {"time":"2026-08-07T19:07:03.218415677Z","level":"WARN","msg":"redis probe failed","addr":"redis-2:6379","err":"dial tcp: lookup redis-2: i/o timeout"} {"time":"2026-08-07T19:07:03.480096684Z","level":"INFO","msg":"oracle writable master","master":"172.26.0.2:6379"} {"time":"2026-08-07T19:07:03.480124536Z","level":"INFO","msg":"noop","sentinel":"sentinel-1:26379","advertised":"172.26.0.2:6379","oracle":"172.26.0.2:6379"} {"time":"2026-08-07T19:07:03.480175312Z","level":"INFO","msg":"reconciler once complete"} 
+PASS|SPEC-F no writable -> ALERT, no invent
+PASS|SPEC-G master death -> stock failover; reconciler no dual_master
+PASS|T01 final single-writable + reconciler noop
+
+## SPEC §5 coverage
+A|1 of 5 stale|matrix A
+B|4 stale / 1 correct; heal toward Redis|matrix B
+C|all 5 wrong; revive|matrix C
+D|partition island|matrix D
+E|dual writable never heal|T05 / matrix E
+F|no writable|matrix F
+G|stock failover|T02 / matrix G
+rejoin|Sentinel REPLICAOF demote|T04
+API-heal|REMOVE+MONITOR / FAILOVER|T07

@@ -1,0 +1,14 @@
+ Container lab-reconciler-1-run-db90dea9b4d8 Creating 
+ Container lab-reconciler-1-run-db90dea9b4d8 Created 
+{"time":"2026-08-08T06:49:16.066889586Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"local_sentinel":true,"heal_cooldown":0,"sentinels":["sentinel-1:26379"]}
+{"time":"2026-08-08T06:49:16.368633866Z","level":"INFO","msg":"oracle writable master","master":"172.26.0.2:6379"}
+{"time":"2026-08-08T06:49:16.36866249Z","level":"WARN","msg":"DIVERGE","sentinel":"sentinel-1:26379","advertised":"172.26.0.7:6379","oracle":"172.26.0.2:6379"}
+{"time":"2026-08-08T06:49:16.368845596Z","level":"INFO","msg":"apply heal plan","sentinel":"sentinel-1:26379","failover_safe":true,"reason":"advertised_down_or_unreachable_failover_ok","advertised":"172.26.0.7:6379","oracle":"172.26.0.2:6379","flags":""}
+{"time":"2026-08-08T06:49:16.36885308Z","level":"INFO","msg":"apply heal starting","action":"SENTINEL FAILOVER","sentinel":"sentinel-1:26379"}
+{"time":"2026-08-08T06:49:16.368922431Z","level":"WARN","msg":"FAILOVER failed, trying REMOVE+MONITOR","err":"NOGOODSLAVE No suitable replica to promote"}
+{"time":"2026-08-08T06:49:16.368938531Z","level":"INFO","msg":"apply heal starting","action":"SENTINEL REMOVE+MONITOR","sentinel":"sentinel-1:26379","ip":"172.26.0.2","port":6379}
+{"time":"2026-08-08T06:49:17.380595448Z","level":"WARN","msg":"heal verify mismatch","got":"172.26.0.7:6379","expected":"172.26.0.2:6379"}
+{"time":"2026-08-08T06:49:17.380609495Z","level":"INFO","msg":"apply heal starting","action":"SENTINEL RESET","sentinel":"sentinel-1:26379"}
+{"time":"2026-08-08T06:49:19.38184932Z","level":"WARN","msg":"heal verify mismatch","got":"172.26.0.7:6379","expected":"172.26.0.2:6379"}
+{"time":"2026-08-08T06:49:19.381867975Z","level":"ERROR","msg":"heal failed","sentinel":"sentinel-1:26379","oracle":"172.26.0.2:6379","conf_fallback_needed":true}
+{"time":"2026-08-08T06:49:19.381917319Z","level":"INFO","msg":"reconciler once complete"}

@@ -1,0 +1,8 @@
+ Container lab-reconciler-1-run-5dc3a85203b8 Creating 
+ Container lab-reconciler-1-run-5dc3a85203b8 Created 
+{"time":"2026-08-08T06:43:18.526945896Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"local_sentinel":true,"heal_cooldown":0,"sentinels":["sentinel-1:26379"]}
+{"time":"2026-08-08T06:43:18.949685821Z","level":"WARN","msg":"redis probe failed","addr":"10.255.255.254:6379","err":"i/o timeout","seed":false}
+{"time":"2026-08-08T06:43:18.94971193Z","level":"INFO","msg":"oracle writable master","master":"172.26.0.2:6379"}
+{"time":"2026-08-08T06:43:18.949724855Z","level":"WARN","msg":"DIVERGE","sentinel":"sentinel-1:26379","advertised":"10.255.255.254:6379","oracle":"172.26.0.2:6379"}
+{"time":"2026-08-08T06:43:18.950300861Z","level":"ERROR","msg":"ALERT","event":"apply_refused","reason":"partition_suspect_few_reachable_redis","reachable":1,"min":2,"seeds":1}
+{"time":"2026-08-08T06:43:18.950374901Z","level":"INFO","msg":"reconciler once complete"}

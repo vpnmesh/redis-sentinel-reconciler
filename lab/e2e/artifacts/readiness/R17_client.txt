@@ -1,0 +1,44 @@
+### R17_client 2026-08-09T12:31:35Z
+
+role_master=redis-5 mip=172.26.0.7 oracle_heal=172.26.0.7:6379 ad1=172.26.0.7
+## steady writer
+ Container lab-writer-run-228bbeb8e30f Creating 
+ Container lab-writer-run-228bbeb8e30f Created 
+{"time":"2026-08-09T12:31:02.851856839Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:02.851304889Z"}
+{"time":"2026-08-09T12:31:03.851364057Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:03.850676732Z"}
+{"time":"2026-08-09T12:31:04.85147337Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:04.850655349Z"}
+{"time":"2026-08-09T12:31:05.851381114Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:05.850591567Z"}
+{"time":"2026-08-09T12:31:06.851483266Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:06.850638515Z"}
+{"time":"2026-08-09T12:31:07.851758084Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:07.850615421Z"}
+{"time":"2026-08-09T12:31:08.851418585Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:08.850622506Z"}
+{"time":"2026-08-09T12:31:09.851315072Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:09.850637395Z"}
+## lie writer
+ Container lab-writer-run-47854ffbb8dd Creating 
+ Container lab-writer-run-47854ffbb8dd Created 
+{"time":"2026-08-09T12:31:14.629512561Z","level":"ERROR","msg":"SET failed","master":"10.255.255.254:6379","err":"dial tcp 10.255.255.254:6379: i/o timeout"}
+{"time":"2026-08-09T12:31:17.631469192Z","level":"ERROR","msg":"SET failed","master":"10.255.255.254:6379","err":"dial tcp 10.255.255.254:6379: i/o timeout"}
+## heal
+ Container lab-reconciler-1-run-79f16df3696c Creating 
+ Container lab-reconciler-1-run-79f16df3696c Created 
+{"time":"2026-08-09T12:31:21.913980375Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"local_sentinel":true,"heal_cooldown":0,"sentinels":["sentinel-1:26379"]}
+{"time":"2026-08-09T12:31:22.619482485Z","level":"WARN","msg":"redis probe failed","addr":"10.255.255.254:6379","err":"dial tcp 10.255.255.254:6379: i/o timeout","seed":false}
+{"time":"2026-08-09T12:31:22.619555092Z","level":"INFO","msg":"oracle writable master","master":"172.26.0.7:6379"}
+{"time":"2026-08-09T12:31:22.620055114Z","level":"INFO","msg":"equal_epoch_sample","trap":false,"sample_size":1,"ads":["10.255.255.254:6379"],"epochs":null}
+{"time":"2026-08-09T12:31:22.620105018Z","level":"WARN","msg":"DIVERGE","sentinel":"sentinel-1:26379","advertised":"10.255.255.254:6379","oracle":"172.26.0.7:6379","equal_epoch_trap":false}
+{"time":"2026-08-09T12:31:22.620283284Z","level":"INFO","msg":"apply heal plan","sentinel":"sentinel-1:26379","failover_safe":true,"reason":"advertised_down_or_unreachable_failover_ok","advertised":"10.255.255.254:6379","oracle":"172.26.0.7:6379","flags":"","equal_epoch_trap":false}
+{"time":"2026-08-09T12:31:22.62029695Z","level":"INFO","msg":"apply heal starting","action":"SENTINEL FAILOVER","sentinel":"sentinel-1:26379"}
+{"time":"2026-08-09T12:31:22.620394253Z","level":"WARN","msg":"FAILOVER failed, trying REMOVE+MONITOR","err":"NOGOODSLAVE No suitable replica to promote"}
+{"time":"2026-08-09T12:31:22.620416415Z","level":"INFO","msg":"apply heal starting","action":"SENTINEL REMOVE+MONITOR","sentinel":"sentinel-1:26379","ip":"172.26.0.7","port":6379}
+{"time":"2026-08-09T12:31:23.626668384Z","level":"INFO","msg":"heal succeeded","action":"SENTINEL REMOVE+MONITOR","sentinel":"sentinel-1:26379","master":"172.26.0.7:6379"}
+{"time":"2026-08-09T12:31:23.626743696Z","level":"INFO","msg":"reconciler once complete"}
+## healed writer
+ Container lab-writer-run-43b787b836b3 Creating 
+ Container lab-writer-run-43b787b836b3 Created 
+{"time":"2026-08-09T12:31:28.191633314Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:28.19097318Z"}
+{"time":"2026-08-09T12:31:29.191817479Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:29.190643818Z"}
+{"time":"2026-08-09T12:31:30.190592519Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:30.189616841Z"}
+{"time":"2026-08-09T12:31:31.190697816Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:31.189879545Z"}
+{"time":"2026-08-09T12:31:32.190303522Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:32.189573517Z"}
+{"time":"2026-08-09T12:31:33.190678499Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:33.189668986Z"}
+{"time":"2026-08-09T12:31:34.19058364Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:34.189610265Z"}
+{"time":"2026-08-09T12:31:35.190549596Z","level":"INFO","msg":"SET ok","master":"172.26.0.7:6379","value":"2026-08-09T12:31:35.189686239Z"}

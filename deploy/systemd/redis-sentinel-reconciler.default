@@ -1,0 +1,28 @@
+# /etc/default/redis-sentinel-reconciler
+# The process reads these names (RSR_* also works). Flags override env.
+
+SENTINEL_ADDR=127.0.0.1:26379
+MASTER_NAME=mymaster
+# All Redis/Valkey data nodes, port 6379 — not Sentinel 26379.
+REDIS_ADDRS=10.0.0.1:6379,10.0.0.2:6379,10.0.0.3:6379
+
+# Observe until you have watched a real cluster. APPLY=true is canary-only.
+APPLY=false
+INTERVAL=30s
+HEAL_COOLDOWN=15m
+HEAL_LEASE=true
+EQUAL_EPOCH_ESCALATE=true
+METRICS_ADDR=127.0.0.1:9090
+
+# REDIS_PASSWORD=
+# SENTINEL_PASSWORD=
+# REDIS_USERNAME=
+# SENTINEL_USERNAME=
+
+# RSR_TLS=true
+# RSR_TLS_CA_FILE=/etc/redis/ca.pem
+# Needed when this process dials 127.0.0.1 but the cert is for a hostname:
+# RSR_TLS_SERVER_NAME=db-n1.example.net
+# RSR_TLS_SKIP_VERIFY=false
+# RSR_TLS_CERT=/etc/redis/client.pem
+# RSR_TLS_KEY=/etc/redis/client.key

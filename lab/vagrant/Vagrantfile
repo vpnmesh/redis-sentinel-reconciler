@@ -1,0 +1,55 @@
+# frozen_string_literal: true
+# Vagrant lab: N systemd nodes (Docker provider) ≈ bare-metal Redis/Valkey+Sentinel+reconciler.
+# CLUSTER_N=3|5|7 (default 5). ENGINE=redis|valkey. See PLAN.md.
+
+CLUSTER_N = (ENV["CLUSTER_N"] || "5").to_i
+unless [3, 5, 7].include?(CLUSTER_N)
+  abort "CLUSTER_N must be 3, 5, or 7 (got #{CLUSTER_N})"
+end
+
+QUORUM = (CLUSTER_N / 2) + 1
+ENGINE = (ENV["ENGINE"] || "redis").downcase
+# Valkey official bins need glibc ≥2.38 → Ubuntu 24.04; Redis apt stays on 22.04.
+DEFAULT_IMAGE = ENGINE == "valkey" ? "jrei/systemd-ubuntu:24.04" : "jrei/systemd-ubuntu:22.04"
+IMAGE = ENV.fetch("VAGRANT_DOCKER_IMAGE", DEFAULT_IMAGE)
+ROOT = File.expand_path("../..", __dir__)
+LAB_NET = ENV.fetch("RSR_VAGRANT_NET", "rsr-vagrant-lab")
+
+Vagrant.configure("2") do |config|
+  # Bind-mount repo (rsync sync is flaky with docker provider).
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  (1..CLUSTER_N).each do |i|
+    name = "node-#{i}"
+    config.vm.define name, primary: (i == 1) do |node|
+      node.vm.hostname = name
+
+      node.vm.provider "docker" do |d|
+        d.image = IMAGE
+        d.name = "rsr-vagrant-#{name}"
+        d.has_ssh = true
+        d.remains_running = true
+        d.privileged = true
+        d.volumes = [
+          "/sys/fs/cgroup:/sys/fs/cgroup:rw",
+          "#{ROOT}:/opt/redis-sentinel-reconciler:ro"
+        ]
+        d.create_args = [
+          "--cgroupns=host",
+          "--tmpfs=/run",
+          "--tmpfs=/run/lock",
+          "--network=#{LAB_NET}",
+          "--hostname=#{name}"
+        ]
+      end
+
+      node.vm.provision "shell", path: "provision/bootstrap.sh", env: {
+        "NODE_INDEX" => i.to_s,
+        "CLUSTER_N" => CLUSTER_N.to_s,
+        "QUORUM" => QUORUM.to_s,
+        "MASTER_NAME" => ENV.fetch("MASTER_NAME", "mymaster"),
+        "ENGINE" => ENGINE
+      }
+    end
+  end
+end

@@ -1,0 +1,8 @@
+ Container lab-reconciler-1-run-8307e66058ca Creating 
+ Container lab-reconciler-1-run-8307e66058ca Created 
+{"time":"2026-08-09T09:27:16.988842804Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"local_sentinel":true,"heal_cooldown":0,"sentinels":["sentinel-5:26379"]}
+{"time":"2026-08-09T09:27:17.544087686Z","level":"WARN","msg":"redis probe failed","addr":"10.255.255.254:6379","err":"i/o timeout","seed":false}
+{"time":"2026-08-09T09:27:17.689042079Z","level":"INFO","msg":"oracle writable master","master":"172.26.0.2:6379"}
+{"time":"2026-08-09T09:27:17.689436543Z","level":"WARN","msg":"DIVERGE","sentinel":"sentinel-5:26379","advertised":"10.255.255.254:6379","oracle":"172.26.0.2:6379","equal_epoch_trap":false}
+{"time":"2026-08-09T09:27:17.69000415Z","level":"ERROR","msg":"ALERT","event":"apply_refused","reason":"heal_lease_held","oracle":"172.26.0.2:6379"}
+{"time":"2026-08-09T09:27:17.690035809Z","level":"INFO","msg":"reconciler once complete"}

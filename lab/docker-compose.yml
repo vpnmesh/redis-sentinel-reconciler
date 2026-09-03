@@ -1,0 +1,188 @@
+# 5 Redis + 5 Sentinel + 5 reconciler sidecars (1:1 with each Sentinel).
+services:
+  redis-1:
+    image: redis:7-alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+     - ./config/redis-1.conf:/usr/local/etc/redis/redis.conf:ro
+    ports:
+     - "63791:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+    networks: [lab]
+
+  redis-2: &redis_replica
+    image: redis:7-alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+     - ./config/redis-2.conf:/usr/local/etc/redis/redis.conf:ro
+    ports:
+     - "63792:6379"
+    depends_on:
+      redis-1:
+        condition: service_healthy
+    networks: [lab]
+
+  redis-3:
+    <<: *redis_replica
+    volumes:
+     - ./config/redis-3.conf:/usr/local/etc/redis/redis.conf:ro
+    ports:
+     - "63793:6379"
+
+  redis-4:
+    <<: *redis_replica
+    volumes:
+     - ./config/redis-4.conf:/usr/local/etc/redis/redis.conf:ro
+    ports:
+     - "63794:6379"
+
+  redis-5:
+    <<: *redis_replica
+    volumes:
+     - ./config/redis-5.conf:/usr/local/etc/redis/redis.conf:ro
+    ports:
+     - "63795:6379"
+
+  sentinel-1: &sentinel
+    image: redis:7-alpine
+    entrypoint: ["/usr/local/bin/sentinel-entrypoint.sh"]
+    volumes:
+     - ./config/sentinel-1.conf:/usr/local/etc/redis/sentinel.conf:ro
+     - ./scripts/sentinel-entrypoint.sh:/usr/local/bin/sentinel-entrypoint.sh:ro
+    ports:
+     - "26379:26379"
+    depends_on:
+      redis-1:
+        condition: service_healthy
+    networks: [lab]
+
+  sentinel-2:
+    <<: *sentinel
+    volumes:
+     - ./config/sentinel-2.conf:/usr/local/etc/redis/sentinel.conf:ro
+     - ./scripts/sentinel-entrypoint.sh:/usr/local/bin/sentinel-entrypoint.sh:ro
+    ports:
+     - "26380:26379"
+
+  sentinel-3:
+    <<: *sentinel
+    volumes:
+     - ./config/sentinel-3.conf:/usr/local/etc/redis/sentinel.conf:ro
+     - ./scripts/sentinel-entrypoint.sh:/usr/local/bin/sentinel-entrypoint.sh:ro
+    ports:
+     - "26381:26379"
+
+  sentinel-4:
+    <<: *sentinel
+    volumes:
+     - ./config/sentinel-4.conf:/usr/local/etc/redis/sentinel.conf:ro
+     - ./scripts/sentinel-entrypoint.sh:/usr/local/bin/sentinel-entrypoint.sh:ro
+    ports:
+     - "26382:26379"
+
+  sentinel-5:
+    <<: *sentinel
+    volumes:
+     - ./config/sentinel-5.conf:/usr/local/etc/redis/sentinel.conf:ro
+     - ./scripts/sentinel-entrypoint.sh:/usr/local/bin/sentinel-entrypoint.sh:ro
+    ports:
+     - "26383:26379"
+
+  writer:
+    build:
+      context: ..
+      dockerfile: Dockerfile.writer
+    command:
+     - --sentinel-addrs=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
+     - --master-name=mymaster
+     - --interval=1s
+    depends_on:
+     - sentinel-1
+     - sentinel-2
+     - sentinel-3
+     - sentinel-4
+     - sentinel-5
+    networks: [lab]
+
+  # One reconciler sidecar per Sentinel (SPEC §4 / §6). Default dry-run.
+  reconciler-1: &reconciler
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command:
+     - --sentinel-addr=sentinel-1:26379
+     - --master-name=mymaster
+     - --interval=5s
+     - --local-sentinel
+     - --quorum=3
+     - --heal-cooldown=15m
+     - --interval-jitter=0.2
+     - --redis-addrs=redis-1:6379,redis-2:6379,redis-3:6379,redis-4:6379,redis-5:6379
+    depends_on:
+     - sentinel-1
+    networks: [lab]
+
+  reconciler-2:
+    <<: *reconciler
+    command:
+     - --sentinel-addr=sentinel-2:26379
+     - --master-name=mymaster
+     - --interval=5s
+     - --local-sentinel
+     - --quorum=3
+     - --heal-cooldown=15m
+     - --interval-jitter=0.2
+     - --redis-addrs=redis-1:6379,redis-2:6379,redis-3:6379,redis-4:6379,redis-5:6379
+    depends_on:
+     - sentinel-2
+
+  reconciler-3:
+    <<: *reconciler
+    command:
+     - --sentinel-addr=sentinel-3:26379
+     - --master-name=mymaster
+     - --interval=5s
+     - --local-sentinel
+     - --quorum=3
+     - --heal-cooldown=15m
+     - --interval-jitter=0.2
+     - --redis-addrs=redis-1:6379,redis-2:6379,redis-3:6379,redis-4:6379,redis-5:6379
+    depends_on:
+     - sentinel-3
+
+  reconciler-4:
+    <<: *reconciler
+    command:
+     - --sentinel-addr=sentinel-4:26379
+     - --master-name=mymaster
+     - --interval=5s
+     - --local-sentinel
+     - --quorum=3
+     - --heal-cooldown=15m
+     - --interval-jitter=0.2
+     - --redis-addrs=redis-1:6379,redis-2:6379,redis-3:6379,redis-4:6379,redis-5:6379
+    depends_on:
+     - sentinel-4
+
+  reconciler-5:
+    <<: *reconciler
+    command:
+     - --sentinel-addr=sentinel-5:26379
+     - --master-name=mymaster
+     - --interval=5s
+     - --local-sentinel
+     - --quorum=3
+     - --heal-cooldown=15m
+     - --interval-jitter=0.2
+     - --redis-addrs=redis-1:6379,redis-2:6379,redis-3:6379,redis-4:6379,redis-5:6379
+    depends_on:
+     - sentinel-5
+
+networks:
+  lab:
+    driver: bridge
+    name: redis-sentinel-lab

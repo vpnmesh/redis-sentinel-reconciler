@@ -1,0 +1,16 @@
+ Container lab-reconciler-1-run-59fb8770bbca Creating 
+ Container lab-reconciler-1-run-59fb8770bbca Created 
+{"time":"2026-08-08T06:42:23.755645128Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"local_sentinel":true,"heal_cooldown":0,"sentinels":["sentinel-1:26379"]}
+{"time":"2026-08-08T06:42:23.828023645Z","level":"WARN","msg":"redis probe failed","addr":"redis-2:6379","err":"dial tcp: lookup redis-2 on 127.0.0.11:53: server misbehaving","seed":true}
+{"time":"2026-08-08T06:42:23.910857457Z","level":"WARN","msg":"redis probe failed","addr":"redis-3:6379","err":"dial tcp: lookup redis-3 on 127.0.0.11:53: server misbehaving","seed":true}
+{"time":"2026-08-08T06:42:24.02377343Z","level":"WARN","msg":"redis probe failed","addr":"redis-4:6379","err":"dial tcp: lookup redis-4 on 127.0.0.11:53: server misbehaving","seed":true}
+{"time":"2026-08-08T06:42:24.07165408Z","level":"WARN","msg":"redis probe failed","addr":"redis-5:6379","err":"dial tcp: lookup redis-5 on 127.0.0.11:53: server misbehaving","seed":true}
+{"time":"2026-08-08T06:42:24.49062613Z","level":"WARN","msg":"redis probe failed","addr":"10.255.255.254:6379","err":"i/o timeout","seed":false}
+{"time":"2026-08-08T06:42:24.601065861Z","level":"WARN","msg":"redis probe failed","addr":"redis-1:6379","err":"dial tcp: lookup redis-1 on 127.0.0.11:53: server misbehaving","seed":true}
+{"time":"2026-08-08T06:42:24.601101569Z","level":"WARN","msg":"oracle candidate","addr":"redis-2:6379","role":"","writable":false,"err":"dial tcp: lookup redis-2 on 127.0.0.11:53: server misbehaving"}
+{"time":"2026-08-08T06:42:24.601106738Z","level":"WARN","msg":"oracle candidate","addr":"redis-3:6379","role":"","writable":false,"err":"dial tcp: lookup redis-3 on 127.0.0.11:53: server misbehaving"}
+{"time":"2026-08-08T06:42:24.601109754Z","level":"WARN","msg":"oracle candidate","addr":"redis-4:6379","role":"","writable":false,"err":"dial tcp: lookup redis-4 on 127.0.0.11:53: server misbehaving"}
+{"time":"2026-08-08T06:42:24.601112519Z","level":"WARN","msg":"oracle candidate","addr":"redis-5:6379","role":"","writable":false,"err":"dial tcp: lookup redis-5 on 127.0.0.11:53: server misbehaving"}
+{"time":"2026-08-08T06:42:24.601115345Z","level":"WARN","msg":"oracle candidate","addr":"redis-1:6379","role":"","writable":false,"err":"dial tcp: lookup redis-1 on 127.0.0.11:53: server misbehaving"}
+{"time":"2026-08-08T06:42:24.6011182Z","level":"ERROR","msg":"ALERT","reason":"no_writable_master","probed":5,"discovered":6}
+{"time":"2026-08-08T06:42:24.601153366Z","level":"INFO","msg":"reconciler once complete"}

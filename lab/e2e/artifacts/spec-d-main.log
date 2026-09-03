@@ -1,0 +1,7 @@
+ Container lab-reconciler-run-8becbf9b5b06 Creating 
+ Container lab-reconciler-run-8becbf9b5b06 Created 
+{"time":"2026-08-07T19:06:16.517045749Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":false,"once":true,"sentinels":["sentinel-1:26379"]}
+{"time":"2026-08-07T19:06:19.521052011Z","level":"WARN","msg":"redis probe failed","addr":"redis-2:6379","err":"dial tcp: lookup redis-2: i/o timeout"}
+{"time":"2026-08-07T19:06:19.782563118Z","level":"INFO","msg":"oracle writable master","master":"redis-1:6379"}
+{"time":"2026-08-07T19:06:19.782930701Z","level":"INFO","msg":"noop","sentinel":"sentinel-1:26379","advertised":"172.26.0.2:6379","oracle":"redis-1:6379"}
+{"time":"2026-08-07T19:06:19.782991546Z","level":"INFO","msg":"reconciler once complete"}

@@ -1,0 +1,11 @@
+### R19_mt 2026-08-09T12:32:41Z
+
+backlog_file=yes
+## single master-name tick
+ Container lab-reconciler-1-run-f243fc45b55c Creating 
+ Container lab-reconciler-1-run-f243fc45b55c Created 
+{"time":"2026-08-09T12:32:40.889984776Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":false,"once":true,"local_sentinel":true,"heal_cooldown":0,"sentinels":["sentinel-1:26379"]}
+{"time":"2026-08-09T12:32:41.196195773Z","level":"INFO","msg":"oracle writable master","master":"172.26.0.7:6379"}
+{"time":"2026-08-09T12:32:41.196623259Z","level":"INFO","msg":"equal_epoch_sample","trap":false,"sample_size":1,"ads":["172.26.0.7:6379"],"epochs":null}
+{"time":"2026-08-09T12:32:41.196670248Z","level":"INFO","msg":"noop","sentinel":"sentinel-1:26379","advertised":"172.26.0.7:6379","oracle":"172.26.0.7:6379"}
+{"time":"2026-08-09T12:32:41.196700314Z","level":"INFO","msg":"reconciler once complete"}

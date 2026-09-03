@@ -1,0 +1,5 @@
+ Container lab-reconciler-1-run-d5340181a946 Creating 
+ Container lab-reconciler-1-run-d5340181a946 Created 
+{"time":"2026-08-08T06:41:38.160755243Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"local_sentinel":true,"heal_cooldown":0,"sentinels":["sentinel-1:26379"]}
+{"time":"2026-08-08T06:41:38.418238456Z","level":"ERROR","msg":"ALERT","reason":"dual_master","writable_count":2}
+{"time":"2026-08-08T06:41:38.418302196Z","level":"INFO","msg":"reconciler once complete"}

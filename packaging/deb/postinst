@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+if ! getent passwd redis >/dev/null 2>&1; then
+	adduser --system --group --no-create-home --home /nonexistent \
+		--shell /usr/sbin/nologin redis
+fi
+if [ -f /etc/default/redis-sentinel-reconciler ]; then
+	chown root:redis /etc/default/redis-sentinel-reconciler 2>/dev/null \
+		|| chown root:root /etc/default/redis-sentinel-reconciler
+	chmod 0640 /etc/default/redis-sentinel-reconciler || true
+fi
+if [ -d /run/systemd/system ]; then
+	systemctl daemon-reload >/dev/null 2>&1 || true
+fi

@@ -1,0 +1,18 @@
+[Unit]
+Description=Redis Sentinel Reconciler (local sidecar)
+Documentation=https://github.com/vpnmesh/redis-sentinel-reconciler
+After=network-online.target redis-sentinel.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=redis
+Group=redis
+EnvironmentFile=-/etc/default/redis-sentinel-reconciler
+# 1:1 with the local Sentinel. Secrets stay in the env file, not in argv.
+ExecStart=/usr/bin/reconciler --local-sentinel
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

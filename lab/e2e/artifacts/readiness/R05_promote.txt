@@ -1,0 +1,25 @@
+### R05_promote 2026-08-09T12:22:44Z
+
+oracle=172.26.0.2 ad_after=172.26.0.2 role_after=master
+## reconciler
+ Container lab-reconciler-1-run-e3bd7601c90c Creating 
+ Container lab-reconciler-1-run-e3bd7601c90c Created 
+{"time":"2026-08-09T12:22:40.505379492Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"local_sentinel":true,"heal_cooldown":0,"sentinels":["sentinel-1:26379"]}
+{"time":"2026-08-09T12:22:40.814713487Z","level":"INFO","msg":"oracle writable master","master":"172.26.0.2:6379"}
+{"time":"2026-08-09T12:22:40.815009221Z","level":"INFO","msg":"equal_epoch_sample","trap":false,"sample_size":1,"ads":["172.26.0.4:6379"],"epochs":null}
+{"time":"2026-08-09T12:22:40.815038947Z","level":"WARN","msg":"DIVERGE","sentinel":"sentinel-1:26379","advertised":"172.26.0.4:6379","oracle":"172.26.0.2:6379","equal_epoch_trap":false}
+{"time":"2026-08-09T12:22:40.815129918Z","level":"INFO","msg":"apply heal plan","sentinel":"sentinel-1:26379","failover_safe":true,"reason":"advertised_down_or_unreachable_failover_ok","advertised":"172.26.0.4:6379","oracle":"172.26.0.2:6379","flags":"","equal_epoch_trap":false}
+{"time":"2026-08-09T12:22:40.815138945Z","level":"INFO","msg":"apply heal starting","action":"SENTINEL FAILOVER","sentinel":"sentinel-1:26379"}
+{"time":"2026-08-09T12:22:40.815225016Z","level":"WARN","msg":"FAILOVER failed, trying REMOVE+MONITOR","err":"NOGOODSLAVE No suitable replica to promote"}
+{"time":"2026-08-09T12:22:40.815232189Z","level":"INFO","msg":"apply heal starting","action":"SENTINEL REMOVE+MONITOR","sentinel":"sentinel-1:26379","ip":"172.26.0.2","port":6379}
+{"time":"2026-08-09T12:22:41.821555717Z","level":"INFO","msg":"heal succeeded","action":"SENTINEL REMOVE+MONITOR","sentinel":"sentinel-1:26379","master":"172.26.0.2:6379"}
+{"time":"2026-08-09T12:22:41.821611893Z","level":"INFO","msg":"reconciler once complete"}
+## topology
+## redis ROLE / SET
+redis-1 role=master SET=ok
+redis-2 role=slave SET=ok
+redis-3 role=slave SET=ok
+redis-4 role=slave SET=ok
+redis-5 role=slave SET=ok
+## sentinel get-master-addr + config-epoch + flags
+sentinel-1 ad=172.26.0.2:6379 flags=master epoch=0 

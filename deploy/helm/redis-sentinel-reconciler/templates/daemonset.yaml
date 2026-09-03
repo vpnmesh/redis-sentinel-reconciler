@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "rsr.fullname" . }}
+  labels:
+    app: redis-sentinel-reconciler
+spec:
+  selector:
+    matchLabels:
+      app: redis-sentinel-reconciler
+  template:
+    metadata:
+      labels:
+        app: redis-sentinel-reconciler
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: reconciler
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --sentinel-addr={{ .Values.sentinelAddr }}
+            - --master-name={{ .Values.masterName }}
+            - --interval={{ .Values.interval }}
+            - --heal-cooldown={{ .Values.healCooldown }}
+            {{- if .Values.localSentinel }}
+            - --local-sentinel
+            {{- end }}
+            {{- if .Values.healLease }}
+            - --heal-lease=true
+            {{- else }}
+            - --heal-lease=false
+            {{- end }}
+            {{- if .Values.equalEpochEscalate }}
+            - --equal-epoch-escalate=true
+            {{- end }}
+            {{- if .Values.apply }}
+            - --apply
+            {{- end }}
+            {{- if .Values.metrics.enabled }}
+            - --metrics-addr=:{{ .Values.metrics.port }}
+            {{- end }}
+            {{- range .Values.redisAddrs }}
+            - --redis-addrs={{ . }}
+            {{- end }}
+            {{- if .Values.tls.enabled }}
+            - --tls
+            {{- end }}
+            {{- if .Values.tls.skipVerify }}
+            - --tls-skip-verify
+            {{- end }}
+            {{- if .Values.tls.caFile }}
+            - --tls-ca-file={{ .Values.tls.caFile }}
+            {{- end }}
+            {{- if .Values.tls.serverName }}
+            - --tls-server-name={{ .Values.tls.serverName }}
+            {{- end }}
+            {{- if .Values.tls.certFile }}
+            - --tls-cert={{ .Values.tls.certFile }}
+            {{- end }}
+            {{- if .Values.tls.keyFile }}
+            - --tls-key={{ .Values.tls.keyFile }}
+            {{- end }}
+          env:
+            {{- if .Values.auth.redisPassword }}
+            - name: RSR_REDIS_PASSWORD
+              value: {{ .Values.auth.redisPassword | quote }}
+            {{- end }}
+            {{- if .Values.auth.sentinelPassword }}
+            - name: RSR_SENTINEL_PASSWORD
+              value: {{ .Values.auth.sentinelPassword | quote }}
+            {{- end }}
+            {{- if .Values.auth.redisUsername }}
+            - name: RSR_REDIS_USERNAME
+              value: {{ .Values.auth.redisUsername | quote }}
+            {{- end }}
+            {{- if .Values.auth.sentinelUsername }}
+            - name: RSR_SENTINEL_USERNAME
+              value: {{ .Values.auth.sentinelUsername | quote }}
+            {{- end }}
+          ports:
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.extraVolumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

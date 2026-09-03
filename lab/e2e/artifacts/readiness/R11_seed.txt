@@ -1,0 +1,26 @@
+### R11_seed 2026-08-09T12:27:31Z
+
+oracle=172.26.0.7 ad=172.26.0.7
+## reconciler
+ Container lab-reconciler-1-run-0ea71b68504a Creating 
+ Container lab-reconciler-1-run-0ea71b68504a Created 
+{"time":"2026-08-09T12:27:26.935919431Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"local_sentinel":true,"heal_cooldown":0,"sentinels":["sentinel-1:26379"]}
+{"time":"2026-08-09T12:27:27.338418704Z","level":"WARN","msg":"redis probe failed","addr":"10.255.255.254:6379","err":"dial tcp 10.255.255.254:6379: i/o timeout","seed":false}
+{"time":"2026-08-09T12:27:27.64861207Z","level":"INFO","msg":"oracle writable master","master":"172.26.0.7:6379"}
+{"time":"2026-08-09T12:27:27.649262964Z","level":"INFO","msg":"equal_epoch_sample","trap":false,"sample_size":1,"ads":["10.255.255.254:6379"],"epochs":null}
+{"time":"2026-08-09T12:27:27.649312387Z","level":"WARN","msg":"DIVERGE","sentinel":"sentinel-1:26379","advertised":"10.255.255.254:6379","oracle":"172.26.0.7:6379","equal_epoch_trap":false}
+{"time":"2026-08-09T12:27:27.649475364Z","level":"INFO","msg":"apply heal plan","sentinel":"sentinel-1:26379","failover_safe":true,"reason":"advertised_down_or_unreachable_failover_ok","advertised":"10.255.255.254:6379","oracle":"172.26.0.7:6379","flags":"","equal_epoch_trap":false}
+{"time":"2026-08-09T12:27:27.649485463Z","level":"INFO","msg":"apply heal starting","action":"SENTINEL FAILOVER","sentinel":"sentinel-1:26379"}
+{"time":"2026-08-09T12:27:27.649580662Z","level":"WARN","msg":"FAILOVER failed, trying REMOVE+MONITOR","err":"NOGOODSLAVE No suitable replica to promote"}
+{"time":"2026-08-09T12:27:27.649599467Z","level":"INFO","msg":"apply heal starting","action":"SENTINEL REMOVE+MONITOR","sentinel":"sentinel-1:26379","ip":"172.26.0.7","port":6379}
+{"time":"2026-08-09T12:27:28.664732451Z","level":"INFO","msg":"heal succeeded","action":"SENTINEL REMOVE+MONITOR","sentinel":"sentinel-1:26379","master":"172.26.0.7:6379"}
+{"time":"2026-08-09T12:27:28.664803304Z","level":"INFO","msg":"reconciler once complete"}
+## topology
+## redis ROLE / SET
+redis-1 role=slave SET=ok
+redis-2 role=slave SET=ok
+redis-3 role=slave SET=ok
+redis-4 role=slave SET=ok
+redis-5 role=master SET=ok
+## sentinel get-master-addr + config-epoch + flags
+sentinel-1 ad=172.26.0.7:6379 flags=master epoch=0 

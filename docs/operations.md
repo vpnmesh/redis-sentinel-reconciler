@@ -1,0 +1,106 @@
+# Operations
+
+Alerts scrape `--metrics-addr` (`/metrics`). Rule examples:
+[`deploy/observability/prometheus-alerts.yaml`](../deploy/observability/prometheus-alerts.yaml).
+
+Counters you will actually look at: `diverge`, `would_heal`,
+`alert_dual_master`, `alert_equal_epoch_trap`,
+`alert_equal_epoch_escalate`, `heal_ok`, `heal_fail`, `apply_refused`.
+
+## Observe, then maybe apply
+
+Run one sidecar per Sentinel with `APPLY=false` until the logs look
+boring: ticks, occasional `would_heal`, no surprise `dual_master`.
+
+Canary apply is one host, `--local-sentinel`, cooldown 15m, lease on.
+If that host misbehaves, freeze apply everywhere (kill switch below)
+before touching the rest.
+
+Lab green is not a soak. Watch a real cluster first.
+
+## Kill switch
+
+Set `APPLY=false` in `/etc/default/redis-sentinel-reconciler` on every
+host (or drop `--apply` from Helm) and restart the unit. You should see
+`"apply":false` on the start line and `would_heal` without
+`heal succeeded`.
+
+Freeze apply on a `heal_fail` spike, epoch churn, an unexpected demote,
+or any dual-writable window you do not understand.
+
+## Diverge
+
+Sentinel ads ≠ writable Redis. Log line `DIVERGE`, metric `diverge`.
+
+1. Count writable nodes (`ROLE` + `SET` on the seed list).
+2. Two or more writables → dual-master, do **not** `--apply`.
+3. `equal_epoch_trap` → equal-epoch section below.
+4. Still one writable and ads are wrong: dry-run should log `would_heal`.
+   With `--apply` the local sidecar heals toward that oracle, then
+   write-probes it.
+
+## Dual master
+
+`alert_dual_master`. The reconciler will not heal. That is the point —
+picking a side with `MONITOR` cements a split-brain.
+
+Find who should be master, demote the extra with `REPLICAOF` (Sentinel
+usually does this; do it by hand if it is stuck). When you are back to
+one writable, leftover stale ads are just diverge.
+
+Do not `--apply` while two nodes still accept writes. Do not restart a
+single island “to clear the alert”.
+
+## Equal-epoch trap
+
+Two Sentinels advertise different masters with the same `config-epoch`.
+Hello from the peer is ignored, so the lie never heals itself. Logs:
+`equal_epoch_trap`. If FAILOVER would promote the wrong node,
+`equal_epoch_escalate` and MONITOR is refused.
+
+Promote-safe `SENTINEL FAILOVER` on the lying local Sentinel is the
+intended fix (new epoch). If that is unsafe, stop. Do not loop
+`REMOVE`+`MONITOR`. Edit `sentinel.conf` by hand (next section) or wait
+for stock Sentinel if it can still elect.
+
+Keep client write-probes up until ads agree.
+
+## API heal failed (`conf_fallback_needed`)
+
+The process does not rewrite `sentinel.conf` and does not restart
+Sentinel. If FAILOVER / MONITOR / RESET all fail, it logs
+`conf_fallback_needed` and leaves the rest to you:
+
+1. Backup `sentinel.conf`.
+2. `sentinel monitor <name> <oracle-ip> <port> <quorum>`.
+3. Set `config-epoch` / `current-epoch` to `max(observed)+1`.
+4. Restore `auth-pass` if you use a password.
+5. Restart Sentinel, then check ads and a write.
+
+Automating that is a later, explicit flag. It is not on by default.
+
+## Why `--apply` sometimes refuses
+
+These are the cases where healing would make an outage worse. The
+process already refuses; do not override them.
+
+| | Situation | If we healed anyway |
+|---|-----------|---------------------|
+| H1 | Dual writable Redis | Cement split-brain |
+| H2 | Zero writable | Invent a blackhole master |
+| H3 | Partition island (too few seeds reachable) | Two client “truths” |
+| H4 | `FAILOVER` would promote someone other than the oracle | Demote the real master |
+| H5 | Heal storm | Flapping epochs |
+| H6 | Stock failover already in progress | Fight the election |
+| H7 | MONITOR without re-binding auth | Sentinel cannot talk to Redis |
+| H8 | MONITOR a fake / unreachable IP | Client blackhole |
+| H9 | Equal epoch, disagreeing ads | Oscillating ads |
+| H10 | `--apply` without `--local-sentinel` | Every sidecar heals at once |
+
+`make e2e-hazards` walks H1–H10 in the lab.
+
+## Several master names
+
+One `--master-name` per process. Run another instance if you monitor
+more than one name. A single process that juggles a list of masters is
+backlog; do not pretend the current binary does it.

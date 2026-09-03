@@ -1,0 +1,12 @@
+ Container lab-reconciler-1-run-76684069fc2d Creating 
+ Container lab-reconciler-1-run-76684069fc2d Created 
+{"time":"2026-08-07T23:03:30.195518029Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"sentinels":["sentinel-5:26379"]}
+{"time":"2026-08-07T23:03:33.513127592Z","level":"WARN","msg":"redis probe failed","addr":"10.255.255.254:6379","err":"i/o timeout"}
+{"time":"2026-08-07T23:03:33.513154322Z","level":"INFO","msg":"oracle writable master","master":"172.26.0.2:6379"}
+{"time":"2026-08-07T23:03:33.513175903Z","level":"WARN","msg":"DIVERGE","sentinel":"sentinel-5:26379","advertised":"10.255.255.254:6379","oracle":"172.26.0.2:6379"}
+{"time":"2026-08-07T23:03:33.513493241Z","level":"INFO","msg":"apply heal plan","sentinel":"sentinel-5:26379","failover_safe":true,"reason":"advertised_down_or_unreachable_failover_ok","advertised":"10.255.255.254:6379","oracle":"172.26.0.2:6379","flags":""}
+{"time":"2026-08-07T23:03:33.513514902Z","level":"INFO","msg":"apply heal starting","action":"SENTINEL FAILOVER","sentinel":"sentinel-5:26379"}
+{"time":"2026-08-07T23:03:33.513679382Z","level":"WARN","msg":"FAILOVER failed, trying REMOVE+MONITOR","err":"NOGOODSLAVE No suitable replica to promote"}
+{"time":"2026-08-07T23:03:33.51368868Z","level":"INFO","msg":"apply heal starting","action":"SENTINEL REMOVE+MONITOR","sentinel":"sentinel-5:26379","ip":"172.26.0.2","port":6379}
+{"time":"2026-08-07T23:03:34.52365228Z","level":"INFO","msg":"heal succeeded","action":"SENTINEL REMOVE+MONITOR","sentinel":"sentinel-5:26379","master":"172.26.0.2:6379"}
+{"time":"2026-08-07T23:03:34.523750485Z","level":"INFO","msg":"reconciler once complete"}

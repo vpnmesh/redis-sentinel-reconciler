@@ -1,0 +1,41 @@
+redis-sentinel-reconciler lab e2e (5+5)
+time_utc=2026-08-09T11:14:29Z
+pass=15 fail=5 skip=2
+
+## results
+PASS|R1 dry-run would_heal; sentinel ad still fake; no heal
+PASS|R2 CLI refuses --apply without --local-sentinel
+PASS|R3 dual+zero refuse; redis dual=2; no heal
+PASS|R4 partition refuse; no heal
+PASS|R5 oracle stayed master; sentinel ad->oracle
+PASS|R6 heal_cooldown/apply_refused in loop log
+PASS|R7 election: no heal while master down + unit flag parse PASS
+SKIP|R8|MONITOR path not taken this tick; TLS-ACL recipe present; healAPI SET auth-pass code exists
+FAIL|R9|no equal_epoch evidence ad1=172.26.0.7 ad2=172.26.0.2
+FAIL|R10|lease_val= ttl=-2
+PASS|R11 heal/oracle toward seed 172.26.0.2 not fake ad
+PASS|R12 live /metrics diverge|would_heal + alert/grafana expr bind
+PASS|R13 live requirepass: NOAUTH without pass; heal+SET with --redis-password
+FAIL|R14|unit/boot/helm evidence incomplete helm_ok=0
+PASS|R15 runbooks ↔ live diverge/dual/kill-switch (+ equal-epoch ART)
+PASS|R16 observe→apply canary→kill-switch freeze (ads+logs)
+FAIL|R17|writer contract evidence incomplete
+PASS|R18 live metrics: dual_master + diverge/would_heal (SLO counters)
+SKIP|R19|multi-tenant backlog (not implemented); single master-name live tick only
+PASS|R20 live Redis/go version matrix (syft not installed - SBOM CI residual)
+FAIL|R21|expected heal failed + conf_fallback_needed
+PASS|S3 dualx5 ticks -> refuse only (healed=0 refused=5)
+
+## SPEC §5 coverage
+A|1 of 5 stale|matrix A
+B|4 stale / 1 correct; heal toward Redis|matrix B
+C|all 5 wrong; revive|matrix C
+D|partition island|matrix D
+E|dual writable never heal|T05 / matrix E
+F|no writable|matrix F
+G|stock failover|T02 / matrix G
+rejoin|Sentinel REPLICAOF demote|T04
+API-heal|REMOVE+MONITOR / FAILOVER|T07
+sidecar|1 reconciler per Sentinel|matrix H
+hazards|H1-H10 apply-worsens + guards|hazards/
+stress|short L1 flap/storm|stress/

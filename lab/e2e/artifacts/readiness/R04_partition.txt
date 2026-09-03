@@ -1,0 +1,13 @@
+### R04_partition 2026-08-09T12:22:10Z
+
+seeds=172.26.0.2:6379 ad=10.255.255.254
+## reconciler
+ Container lab-reconciler-1-run-4629fdb18155 Creating 
+ Container lab-reconciler-1-run-4629fdb18155 Created 
+{"time":"2026-08-09T12:22:09.271264463Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"local_sentinel":true,"heal_cooldown":0,"sentinels":["sentinel-1:26379"]}
+{"time":"2026-08-09T12:22:09.675149641Z","level":"WARN","msg":"redis probe failed","addr":"10.255.255.254:6379","err":"dial tcp 10.255.255.254:6379: i/o timeout","seed":false}
+{"time":"2026-08-09T12:22:09.675193193Z","level":"INFO","msg":"oracle writable master","master":"172.26.0.2:6379"}
+{"time":"2026-08-09T12:22:09.675968235Z","level":"INFO","msg":"equal_epoch_sample","trap":false,"sample_size":1,"ads":["10.255.255.254:6379"],"epochs":null}
+{"time":"2026-08-09T12:22:09.676027336Z","level":"WARN","msg":"DIVERGE","sentinel":"sentinel-1:26379","advertised":"10.255.255.254:6379","oracle":"172.26.0.2:6379","equal_epoch_trap":false}
+{"time":"2026-08-09T12:22:09.67755609Z","level":"ERROR","msg":"ALERT","event":"apply_refused","reason":"partition_suspect_few_reachable_redis","reachable":1,"min":2,"seeds":1}
+{"time":"2026-08-09T12:22:09.677616834Z","level":"INFO","msg":"reconciler once complete"}

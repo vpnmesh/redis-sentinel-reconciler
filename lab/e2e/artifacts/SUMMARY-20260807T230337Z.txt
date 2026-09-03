@@ -1,0 +1,18 @@
+redis-sentinel-reconciler lab e2e (5+5)
+time_utc=2026-08-07T23:03:37Z
+pass=1 fail=0 skip=0
+
+## results
+PASS|SPEC-SIDECAR 5x reconciler (1:1) each heals only local Sentinel
+
+## SPEC §5 coverage
+A|1 of 5 stale|matrix A
+B|4 stale / 1 correct; heal toward Redis|matrix B
+C|all 5 wrong; revive|matrix C
+D|partition island|matrix D
+E|dual writable never heal|T05 / matrix E
+F|no writable|matrix F
+G|stock failover|T02 / matrix G
+rejoin|Sentinel REPLICAOF demote|T04
+API-heal|REMOVE+MONITOR / FAILOVER|T07
+sidecar|1 reconciler per Sentinel|matrix H

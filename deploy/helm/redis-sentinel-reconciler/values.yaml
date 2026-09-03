@@ -1,0 +1,42 @@
+image:
+  repository: redis-sentinel-reconciler
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+# Observe by default. Flip apply=true only after a soak + Owner GO.
+apply: false
+localSentinel: true
+healLease: true
+equalEpochEscalate: true
+healCooldown: 15m
+interval: 30s
+masterName: mymaster
+# Must list all Redis data-plane seeds (oracle), port 6379.
+redisAddrs: []
+# redisAddrs: ["redis-0.redis:6379", "redis-1.redis:6379", "redis-2.redis:6379"]
+sentinelAddr: "127.0.0.1:26379"
+metrics:
+  enabled: true
+  port: 9090
+
+auth:
+  redisUsername: ""
+  sentinelUsername: ""
+  redisPassword: ""
+  sentinelPassword: ""
+
+tls:
+  enabled: false
+  skipVerify: false
+  caFile: ""
+  serverName: ""
+  certFile: ""
+  keyFile: ""
+
+# Mount a CA / client cert, then point tls.caFile at the in-container path.
+extraVolumes: []
+extraVolumeMounts: []
+
+resources:
+  requests: { cpu: 10m, memory: 32Mi }
+  limits: { cpu: 200m, memory: 128Mi }

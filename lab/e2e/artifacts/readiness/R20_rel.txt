@@ -1,0 +1,7 @@
+### R20_rel 2026-08-09T10:20:54Z
+
+path=/home/efremov/myprojects/vpnmesh/redis-sentinel-reconciler/docs/RELEASE.md
+3:## Version matrix (lab-tested baseline)
+10:Expand matrix on staging before fleet apply (6.2 / 7.2 / 7.4 as needed).
+12:## SBOM / signing (release engineering)
+18:syft redis-sentinel-reconciler:$TAG -o spdx-json > sbom.spdx.json
