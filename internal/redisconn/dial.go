@@ -12,8 +12,12 @@ type Dial struct {
 	Addr     string
 	Username string
 	Password string
-	TLS      *tls.Config
-	Timeout  time.Duration
+	// TLS is a template (no ServerName). Client clones it per dial.
+	TLS *tls.Config
+	// TLSServerName is SNI only when Addr's host is an IP. Hostname
+	// dials use the name in Addr. Same as --tls-server-name / RSR_TLS_SERVER_NAME.
+	TLSServerName string
+	Timeout       time.Duration
 }
 
 // Client returns a go-redis client. Caller must Close it.
@@ -26,7 +30,7 @@ func Client(d Dial) *redis.Client {
 		Addr:         d.Addr,
 		Username:     d.Username,
 		Password:     d.Password,
-		TLSConfig:    d.TLS,
+		TLSConfig:    CloneForAddr(d.TLS, d.Addr, d.TLSServerName),
 		DialTimeout:  timeout,
 		ReadTimeout:  timeout,
 		WriteTimeout: timeout,

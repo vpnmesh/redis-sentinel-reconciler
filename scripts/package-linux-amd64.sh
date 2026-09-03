@@ -29,6 +29,12 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath \
   -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
   -o "$OUT/stage/${TARBALL_STEM}/reconciler" ./cmd/reconciler
 
+BIN="$OUT/stage/${TARBALL_STEM}/reconciler"
+HELP="$("$BIN" -h 2>&1 || true)"
+echo "$HELP" | grep -E -- '-tls$' >/dev/null
+echo "$HELP" | grep -- '-redis-username' >/dev/null
+echo "$HELP" | grep -- '-sentinel-username' >/dev/null
+
 install -m 0644 README.md "$OUT/stage/${TARBALL_STEM}/README.md"
 install -d "$OUT/stage/${TARBALL_STEM}/systemd"
 install -m 0644 deploy/systemd/redis-sentinel-reconciler.service \

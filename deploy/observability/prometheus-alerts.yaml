@@ -1,54 +1,68 @@
-# Prometheus alerts — redis-sentinel-reconciler
+# Prometheus / VictoriaMetrics alerts — redis-sentinel-reconciler
 
-Scrapes `redis_sentinel_reconciler_*` from `--metrics-addr` (e.g. `:9090/metrics`).
+Scrapes `redis_sentinel_reconciler_*` from `--metrics-addr` (example
+`127.0.0.1:9123/metrics`). Scrape 15s, reconcile interval 30s.
+
+Rename (v0.1.1): counters are `*_total`. Last-tick state is a gauge.
+Use `rate`/`increase` on counters and the gauge for “is it bad right now”.
+Do not treat `diverge_total` as a 0/1 — it increments every diverged tick.
+
 Runbooks: docs/operations.md
 
 ```yaml
 groups:
- - name: redis-sentinel-reconciler
+  - name: redis-sentinel-reconciler
     rules:
-     - alert: RedisSentinelReconcilerDiverge
-        expr: increase(redis_sentinel_reconciler_diverge[10m]) > 0
+      - alert: RedisSentinelReconcilerDiverged
+        expr: redis_sentinel_reconciler_diverged == 1
+        for: 2m
+        labels: { severity: warning }
+        annotations:
+          summary: "Sentinel ads currently disagree with the writable Redis oracle"
+          runbook: "docs/operations.md"
+
+      - alert: RedisSentinelReconcilerDivergeTicks
+        expr: increase(redis_sentinel_reconciler_diverge_total[10m]) > 0
         for: 5m
         labels: { severity: warning }
         annotations:
-          summary: "Sentinel ads diverge from writable Redis oracle"
+          summary: "Ticks still counting diverge (rate, not a 0/1)"
           runbook: "docs/operations.md"
 
-     - alert: RedisSentinelReconcilerDualMaster
-        expr: increase(redis_sentinel_reconciler_alert_dual_master[5m]) > 0
+      - alert: RedisSentinelReconcilerDualMaster
+        expr: redis_sentinel_reconciler_writable_masters >= 2 or increase(redis_sentinel_reconciler_alert_dual_master_total[5m]) > 0
         for: 0m
         labels: { severity: critical }
         annotations:
           summary: "Dual writable Redis — reconciler will not heal"
           runbook: "docs/operations.md"
 
-     - alert: RedisSentinelReconcilerEqualEpochTrap
-        expr: increase(redis_sentinel_reconciler_alert_equal_epoch_trap[10m]) > 0
+      - alert: RedisSentinelReconcilerEqualEpochTrap
+        expr: increase(redis_sentinel_reconciler_alert_equal_epoch_trap_total[10m]) > 0
         for: 2m
         labels: { severity: critical }
         annotations:
           summary: "Equal config-epoch and disagreeing master ads"
           runbook: "docs/operations.md"
 
-     - alert: RedisSentinelReconcilerEqualEpochEscalate
-        expr: increase(redis_sentinel_reconciler_alert_equal_epoch_escalate[10m]) > 0
+      - alert: RedisSentinelReconcilerEqualEpochEscalate
+        expr: increase(redis_sentinel_reconciler_alert_equal_epoch_escalate_total[10m]) > 0
         for: 0m
         labels: { severity: critical }
         annotations:
           summary: "Equal-epoch trap and FAILOVER unsafe — do not MONITOR-thrash"
           runbook: "docs/operations.md"
 
-     - alert: RedisSentinelReconcilerHealFailed
-        expr: increase(redis_sentinel_reconciler_heal_fail[15m]) > 0
+      - alert: RedisSentinelReconcilerHealFailed
+        expr: increase(redis_sentinel_reconciler_heal_fail_total[15m]) > 0
         for: 0m
         labels: { severity: warning }
         annotations:
           summary: "API heal failed (conf_fallback_needed may be set)"
           runbook: "docs/operations.md"
 
-     - alert: RedisSentinelReconcilerApplyRefusedSpike
-        expr: increase(redis_sentinel_reconciler_apply_refused[10m]) > 20
+      - alert: RedisSentinelReconcilerApplyRefusedSpike
+        expr: increase(redis_sentinel_reconciler_apply_refused_total[10m]) > 20
         for: 5m
         labels: { severity: warning }
         annotations:

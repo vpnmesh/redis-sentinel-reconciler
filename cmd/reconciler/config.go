@@ -19,10 +19,25 @@ func parseConfig(args []string, getenv getenvFunc, errOut io.Writer) (reconcile.
 		getenv = func(string) string { return "" }
 	}
 
+	configPath, err := peekConfigPath(args)
+	if err != nil {
+		return reconcile.Config{}, err
+	}
+	var file map[string]string
+	if configPath != "" {
+		file, err = loadEnvFile(configPath)
+		if err != nil {
+			return reconcile.Config{}, err
+		}
+	}
+	getenv = layerGetenv(getenv, file)
+
 	fs := flag.NewFlagSet("reconciler", flag.ContinueOnError)
 	if errOut != nil {
 		fs.SetOutput(errOut)
 	}
+
+	_ = fs.String("config", "", "KEY=VALUE file (no systemd $ expansion). Process env and flags override.")
 
 	var sentinelAddrs, redisAddrs multiFlag
 	masterName := fs.String("master-name", envOr(getenv, "mymaster", "RSR_MASTER_NAME", "MASTER_NAME"), "Sentinel master name")
@@ -40,7 +55,7 @@ func parseConfig(args []string, getenv getenvFunc, errOut io.Writer) (reconcile.
 	minReachable := fs.Int("min-reachable-redis", envInt(getenv, 0, "RSR_MIN_REACHABLE_REDIS"), "Refuse apply if fewer static redis seeds reachable (0=auto)")
 	skipFailover := fs.Bool("skip-on-failover-in-progress", envBool(getenv, true, "RSR_SKIP_ON_FAILOVER_IN_PROGRESS"), "Refuse apply while Sentinel failover_in_progress")
 	jitter := fs.Float64("interval-jitter", envFloat(getenv, 0.2, "RSR_INTERVAL_JITTER"), "Extra random fraction of --interval")
-	metricsAddr := fs.String("metrics-addr", envOr(getenv, "", "RSR_METRICS_ADDR", "METRICS_ADDR"), "If set, serve Prometheus text metrics (e.g. :9090)")
+	metricsAddr := fs.String("metrics-addr", envOr(getenv, "", "RSR_METRICS_ADDR", "METRICS_ADDR"), "If set, serve Prometheus text metrics (e.g. 127.0.0.1:9123)")
 	healLease := fs.Bool("heal-lease", envBool(getenv, true, "RSR_HEAL_LEASE", "HEAL_LEASE"), "Acquire Redis NX heal lease on oracle before apply")
 	healLeaseTTL := fs.Duration("heal-lease-ttl", envDuration(getenv, 0, "RSR_HEAL_LEASE_TTL"), "Lease TTL (default: --heal-cooldown or 15m)")
 	equalEpochEsc := fs.Bool("equal-epoch-escalate", envBool(getenv, true, "RSR_EQUAL_EPOCH_ESCALATE", "EQUAL_EPOCH_ESCALATE"), "On equal-epoch trap without safe FAILOVER, refuse MONITOR")
@@ -48,7 +63,7 @@ func parseConfig(args []string, getenv getenvFunc, errOut io.Writer) (reconcile.
 	tlsOn := fs.Bool("tls", envBool(getenv, false, "RSR_TLS"), "Use TLS for Redis and Sentinel")
 	tlsSkip := fs.Bool("tls-skip-verify", envBool(getenv, false, "RSR_TLS_SKIP_VERIFY", "TLS_SKIP_VERIFY"), "Skip TLS certificate verify (lab / IP-only certs)")
 	tlsCA := fs.String("tls-ca-file", envOr(getenv, "", "RSR_TLS_CA_FILE", "TLS_CA_FILE"), "PEM file with trusted CA certificate(s)")
-	tlsServer := fs.String("tls-server-name", envOr(getenv, "", "RSR_TLS_SERVER_NAME", "TLS_SERVER_NAME"), "SNI / cert hostname (needed when dialing 127.0.0.1)")
+	tlsServer := fs.String("tls-server-name", envOr(getenv, "", "RSR_TLS_SERVER_NAME", "TLS_SERVER_NAME"), "SNI only when the dial target is an IP; hostname dials use the name in the address")
 	tlsCert := fs.String("tls-cert", envOr(getenv, "", "RSR_TLS_CERT", "TLS_CERT_FILE"), "Client certificate PEM (mTLS)")
 	tlsKey := fs.String("tls-key", envOr(getenv, "", "RSR_TLS_KEY", "TLS_KEY_FILE"), "Client key PEM (mTLS)")
 
@@ -73,6 +88,9 @@ func parseConfig(args []string, getenv getenvFunc, errOut io.Writer) (reconcile.
 	if len(sentinelAddrs) == 0 {
 		return reconcile.Config{}, fmt.Errorf("at least one --sentinel-addr (or RSR_SENTINEL_ADDR) is required")
 	}
+	if len(redisAddrs) == 0 {
+		return reconcile.Config{}, fmt.Errorf("at least one --redis-addrs (or RSR_REDIS_ADDRS) is required; do not trust Sentinel ads as the oracle")
+	}
 	if *apply && !*localSentinel && !*allowGlobalApply {
 		return reconcile.Config{}, fmt.Errorf("--apply requires --local-sentinel (or --allow-global-apply)")
 	}
@@ -81,7 +99,6 @@ func parseConfig(args []string, getenv getenvFunc, errOut io.Writer) (reconcile.
 		Enabled:    *tlsOn,
 		SkipVerify: *tlsSkip,
 		CAFile:     *tlsCA,
-		ServerName: *tlsServer,
 		CertFile:   *tlsCert,
 		KeyFile:    *tlsKey,
 	})

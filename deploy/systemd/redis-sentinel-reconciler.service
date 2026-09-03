@@ -8,9 +8,10 @@ Wants=network-online.target
 Type=simple
 User=redis
 Group=redis
-EnvironmentFile=-/etc/default/redis-sentinel-reconciler
-# 1:1 with the local Sentinel. Secrets stay in the env file, not in argv.
-ExecStart=/usr/bin/reconciler --local-sentinel
+# Parse KEY=VALUE ourselves (--config). systemd EnvironmentFile expands $ and
+# treats # as a comment; a Vault password can then drop the whole file.
+# Missing/unreadable config is a hard fail (status=2), not a flagless start.
+ExecStart=/usr/bin/reconciler --config /etc/default/redis-sentinel-reconciler --local-sentinel
 Restart=on-failure
 RestartSec=5
 

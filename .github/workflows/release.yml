@@ -27,6 +27,15 @@ jobs:
             export VERSION="${GITHUB_REF_NAME#v}"
           fi
           ./scripts/package-linux-amd64.sh
+      - name: Tarball CLI lockstep
+        run: |
+          tar -tzf dist/redis-sentinel-reconciler_*_linux_amd64.tar.gz | head
+          dir="$(tar -tzf dist/redis-sentinel-reconciler_*_linux_amd64.tar.gz | head -1 | cut -d/ -f1)"
+          tar -xzf dist/redis-sentinel-reconciler_*_linux_amd64.tar.gz -C /tmp
+          /tmp/"$dir"/reconciler -h 2>&1 | tee /tmp/rsr-rel-help.txt
+          grep -E -- '-tls$' /tmp/rsr-rel-help.txt
+          grep -- '-redis-username' /tmp/rsr-rel-help.txt
+          grep -- '-sentinel-username' /tmp/rsr-rel-help.txt
       - uses: actions/upload-artifact@v4
         with:
           name: linux-amd64

@@ -11,13 +11,14 @@ equalEpochEscalate: true
 healCooldown: 15m
 interval: 30s
 masterName: mymaster
-# Must list all Redis data-plane seeds (oracle), port 6379.
+# Must list all Redis data-plane seeds (oracle), port 6379. Required at start.
 redisAddrs: []
-# redisAddrs: ["redis-0.redis:6379", "redis-1.redis:6379", "redis-2.redis:6379"]
-sentinelAddr: "127.0.0.1:26379"
+# redisAddrs: ["db-n1.example.com:6379", "db-n2.example.com:6379", "db-n3.example.com:6379"]
+# TLS: use the DNS name on the cert. 127.0.0.1 needs tls.serverName (IP-only SNI).
+sentinelAddr: "db-n1.example.com:26379"
 metrics:
   enabled: true
-  port: 9090
+  port: 9123
 
 auth:
   redisUsername: ""
@@ -29,6 +30,8 @@ tls:
   enabled: false
   skipVerify: false
   caFile: ""
+  # SNI only when sentinelAddr / redisAddrs host is an IP. Hostname dials
+  # use the name in the address. Leave empty if you dial DNS names.
   serverName: ""
   certFile: ""
   keyFile: ""

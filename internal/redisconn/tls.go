@@ -8,11 +8,11 @@ import (
 )
 
 // TLSSettings is the operator-facing TLS knob set (flags / env).
+// ServerName is not applied here: CloneForAddr sets SNI per dial.
 type TLSSettings struct {
 	Enabled    bool
 	SkipVerify bool
 	CAFile     string
-	ServerName string
 	CertFile   string
 	KeyFile    string
 }
@@ -33,7 +33,6 @@ func BuildTLS(s TLSSettings) (*tls.Config, error) {
 	cfg := &tls.Config{
 		MinVersion:         tls.VersionTLS12,
 		InsecureSkipVerify: s.SkipVerify, //nolint:gosec // operator-opt-in for lab / IP-only certs
-		ServerName:         s.ServerName,
 	}
 
 	if s.CAFile != "" {

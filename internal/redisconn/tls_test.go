@@ -102,27 +102,77 @@ func TestBuildTLS_CAVerifiesHandshake(t *testing.T) {
 	}()
 
 	clientTLS, err := BuildTLS(TLSSettings{
-		Enabled:    true,
-		CAFile:     caFile,
-		ServerName: "redis.test",
+		Enabled: true,
+		CAFile:  caFile,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	perDial := CloneForAddr(clientTLS, "redis.test:6379", "unused-ip-fallback")
+	if perDial.ServerName != "redis.test" {
+		t.Fatalf("hostname dial SNI=%q", perDial.ServerName)
+	}
 
-	conn, err := tls.Dial("tcp", ln.Addr().String(), clientTLS)
+	conn, err := tls.Dial("tcp", ln.Addr().String(), perDial)
 	if err != nil {
 		t.Fatalf("trusted CA handshake failed: %v", err)
 	}
 	_ = conn.Close()
 
-	bad, err := BuildTLS(TLSSettings{Enabled: true, ServerName: "redis.test"})
+	bad, err := BuildTLS(TLSSettings{Enabled: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tls.Dial("tcp", ln.Addr().String(), bad); err == nil {
+	if _, err := tls.Dial("tcp", ln.Addr().String(), CloneForAddr(bad, "redis.test:6379", "")); err == nil {
 		t.Fatal("system-roots (no CA file) should reject the test CA cert")
 	}
+}
+
+func TestBuildTLS_TemplateHasNoServerName(t *testing.T) {
+	cfg, err := BuildTLS(TLSSettings{Enabled: true, SkipVerify: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ServerName != "" {
+		t.Fatalf("template must not pin ServerName, got %q", cfg.ServerName)
+	}
+}
+
+func mustLeafDNSOnly(t *testing.T, caPEM []byte, caKey *ecdsa.PrivateKey, serial int64, dnsName string) tls.Certificate {
+	t.Helper()
+	block, _ := pem.Decode(caPEM)
+	caCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(serial),
+		Subject:      pkix.Name{CommonName: dnsName},
+		DNSNames:     []string{dnsName},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, caCert, &key.PublicKey, caKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+	pair, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pair
 }
 
 func mustTestCA(t *testing.T) ([]byte, *ecdsa.PrivateKey) {

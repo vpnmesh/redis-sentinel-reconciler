@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -26,9 +28,17 @@ func TestParseConfig_RequiresSentinel(t *testing.T) {
 	}
 }
 
+func TestParseConfig_RequiresRedisSeeds(t *testing.T) {
+	_, err := parseConfig([]string{"--sentinel-addr=127.0.0.1:26379"}, getenvMap(nil), io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "redis-addrs") {
+		t.Fatalf("expected redis-addrs required, got %v", err)
+	}
+}
+
 func TestParseConfig_EnvSentinelAndApplyGuard(t *testing.T) {
 	_, err := parseConfig(nil, getenvMap(map[string]string{
 		"RSR_SENTINEL_ADDR": "127.0.0.1:26379",
+		"RSR_REDIS_ADDRS":   "10.0.0.1:6379",
 		"RSR_APPLY":         "true",
 	}), io.Discard)
 	if err == nil || err.Error() == "" {
@@ -54,7 +64,7 @@ func TestParseConfig_EnvSentinelAndApplyGuard(t *testing.T) {
 }
 
 func TestParseConfig_ApplyFlagCompat(t *testing.T) {
-	cfg, err := parseConfig([]string{"--sentinel-addr=127.0.0.1:26379", "--local-sentinel"}, getenvMap(map[string]string{
+	cfg, err := parseConfig([]string{"--sentinel-addr=127.0.0.1:26379", "--local-sentinel", "--redis-addrs=10.0.0.1:6379"}, getenvMap(map[string]string{
 		"APPLY_FLAG": "--apply",
 	}), io.Discard)
 	if err != nil {
@@ -68,6 +78,7 @@ func TestParseConfig_ApplyFlagCompat(t *testing.T) {
 func TestParseConfig_FlagOverridesEnv(t *testing.T) {
 	cfg, err := parseConfig([]string{
 		"--sentinel-addr=127.0.0.1:26379",
+		"--redis-addrs=10.0.0.1:6379",
 		"--master-name=prod",
 		"--interval=45s",
 	}, getenvMap(map[string]string{
@@ -83,14 +94,14 @@ func TestParseConfig_FlagOverridesEnv(t *testing.T) {
 }
 
 func TestParseConfig_TLSRequiresEnable(t *testing.T) {
-	_, err := parseConfig([]string{"--sentinel-addr=127.0.0.1:26379", "--tls-skip-verify"}, getenvMap(nil), io.Discard)
+	_, err := parseConfig([]string{"--sentinel-addr=127.0.0.1:26379", "--redis-addrs=10.0.0.1:6379", "--tls-skip-verify"}, getenvMap(nil), io.Discard)
 	if err == nil {
 		t.Fatal("expected TLS extras without --tls to fail")
 	}
 }
 
 func TestParseConfig_TLSSkipVerify(t *testing.T) {
-	cfg, err := parseConfig([]string{"--sentinel-addr=127.0.0.1:26379", "--tls", "--tls-skip-verify"}, getenvMap(nil), io.Discard)
+	cfg, err := parseConfig([]string{"--sentinel-addr=127.0.0.1:26379", "--redis-addrs=10.0.0.1:6379", "--tls", "--tls-skip-verify"}, getenvMap(nil), io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,6 +116,7 @@ func TestParseConfig_TLSCAFile(t *testing.T) {
 	// use skip-verify + ca is allowed (CA still loaded).
 	_, err := parseConfig([]string{
 		"--sentinel-addr=127.0.0.1:26379",
+		"--redis-addrs=10.0.0.1:6379",
 		"--tls",
 		"--tls-ca-file", ca,
 	}, getenvMap(nil), io.Discard)
@@ -115,16 +127,23 @@ func TestParseConfig_TLSCAFile(t *testing.T) {
 	if err := os.WriteFile(ca, []byte("not-pem"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err = parseConfig([]string{"--sentinel-addr=a:1", "--tls", "--tls-ca-file", ca}, getenvMap(nil), io.Discard)
+	_, err = parseConfig([]string{"--sentinel-addr=a:1", "--redis-addrs=a:6379", "--tls", "--tls-ca-file", ca}, getenvMap(nil), io.Discard)
 	if err == nil {
 		t.Fatal("garbage PEM should fail")
 	}
 }
 
 func TestParseConfig_Help(t *testing.T) {
-	_, err := parseConfig([]string{"-h"}, getenvMap(nil), io.Discard)
+	var buf bytes.Buffer
+	_, err := parseConfig([]string{"-h"}, getenvMap(nil), &buf)
 	if !errors.Is(err, flag.ErrHelp) {
 		t.Fatalf("got %v", err)
+	}
+	help := buf.String()
+	for _, want := range []string{"-tls", "-redis-username", "-sentinel-username", "-config"} {
+		if !strings.Contains(help, want) {
+			t.Errorf("help missing %s\n%s", want, help)
+		}
 	}
 }
 

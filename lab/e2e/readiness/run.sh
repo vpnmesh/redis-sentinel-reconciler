@@ -388,7 +388,10 @@ save_ev R12_obs "$(printf 'ip=%s\n## metrics scrape\n%s\n## alert exprs (diverge
   "$r12_ip" "$metrics" \
   "$(grep -E 'redis_sentinel_reconciler_(diverge|alert_dual_master|would_heal)' "$alerts" | head -20)" \
   "$(grep -oE 'redis_sentinel_reconciler_[a-z_]+' "$graf" | sort -u | head -20)")"
-if echo "$metrics" | grep -qE 'redis_sentinel_reconciler_diverge [1-9]|redis_sentinel_reconciler_would_heal [1-9]' \
+if echo "$metrics" | grep -q 'redis_sentinel_reconciler_diverge_total' \
+  && echo "$metrics" | grep -qE 'redis_sentinel_reconciler_diverge_total[^[:space:]]* [1-9]|redis_sentinel_reconciler_diverged[^[:space:]]* 1' \
+  && echo "$metrics" | grep -q '# TYPE redis_sentinel_reconciler_diverge_total counter' \
+  && echo "$metrics" | grep -q '# TYPE redis_sentinel_reconciler_diverged gauge' \
   && grep -q 'redis_sentinel_reconciler_diverge' "$alerts" \
   && grep -q 'redis_sentinel_reconciler_would_heal' "$graf"; then
   ok "R12 live /metrics diverge|would_heal + alert/grafana expr bind"
@@ -630,9 +633,9 @@ restore_steady_state || true
 save_ev R18_slo "$(printf '## metrics\n%s\n## operations.md counters\n%s\n## R12 diverge evidence\n%s\n' \
   "$m18" "$(grep -nE 'diverge|dual|equal_epoch' "$ROOT_DIR/docs/operations.md" | head -10)" \
   "$(grep -E 'redis_sentinel_reconciler_(diverge|would_heal)' "$EV/R12_obs.txt" | head -10)")"
-if echo "$m18" | grep -qE 'redis_sentinel_reconciler_alert_dual_master [1-9]' \
-  && { echo "$m18" | grep -qE 'redis_sentinel_reconciler_diverge [1-9]' \
-       || grep -qE 'redis_sentinel_reconciler_diverge [1-9]|redis_sentinel_reconciler_would_heal [1-9]' "$EV/R12_obs.txt" \
+if echo "$m18" | grep -qE 'redis_sentinel_reconciler_alert_dual_master_total[^[:space:]]* [1-9]|redis_sentinel_reconciler_writable_masters[^[:space:]]* [2-9]' \
+  && { echo "$m18" | grep -qE 'redis_sentinel_reconciler_diverge_total' \
+       || grep -qE 'redis_sentinel_reconciler_diverge_total|redis_sentinel_reconciler_would_heal' "$EV/R12_obs.txt" \
        || grep -q would_heal "$EV/R01_dry_run.txt"; }; then
   ok "R18 live metrics: dual_master + diverge/would_heal (SLO counters)"
 else

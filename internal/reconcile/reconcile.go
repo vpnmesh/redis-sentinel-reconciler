@@ -37,7 +37,7 @@ type Config struct {
 	MinReachableRedis        int
 	SkipOnFailoverInProgress bool
 	IntervalJitter           float64 // 0-1 fraction of Interval (default 0.2)
-	MetricsAddr              string  // e.g. ":9090"; empty disables
+	MetricsAddr              string  // e.g. "127.0.0.1:9123"; empty disables
 
 	// R9/R10 product readiness.
 	HealLease          bool          // acquire Redis NX lease before apply heal
@@ -75,7 +75,7 @@ func New(cfg Config, log *slog.Logger) *Reconciler {
 	if !cfg.AllowGlobalApply {
 		cfg.RequireLocalForApply = true
 	}
-	return &Reconciler{cfg: cfg, log: log, metrics: newMetrics()}
+	return &Reconciler{cfg: cfg, log: log, metrics: newMetrics(cfg.MasterName, cfg.Apply)}
 }
 
 // Run executes ticks until ctx is cancelled (or once if cfg.Once).
@@ -147,6 +147,7 @@ func (r *Reconciler) nextInterval() time.Duration {
 
 func (r *Reconciler) tick(ctx context.Context) error {
 	r.metrics.Inc("ticks")
+	r.metrics.ResetTickGauges()
 	clients := make([]*sentinel.Client, 0, len(r.cfg.SentinelAddrs))
 	defer func() {
 		for _, c := range clients {
@@ -253,6 +254,7 @@ func (r *Reconciler) tick(ctx context.Context) error {
 	}
 
 	writable, count := oracle.ClassifyWritable(oracleNodes)
+	r.metrics.SetWritableMasters(count)
 	switch {
 	case count == 0:
 		for _, n := range oracleNodes {
@@ -319,10 +321,12 @@ func (r *Reconciler) tick(ctx context.Context) error {
 			"equal_epoch_trap", epochRep.Trap,
 		)
 		r.metrics.Inc("diverge")
+		r.metrics.NoteDiverged()
 
 		if !r.cfg.Apply {
 			r.log.Info("dry-run would_heal", "actions", "SENTINEL FAILOVER|REMOVE+MONITOR", "sentinel", v.addr, "master_name", r.cfg.MasterName)
 			r.metrics.Inc("would_heal")
+			r.metrics.NoteWouldHeal()
 			return
 		}
 
@@ -426,11 +430,11 @@ func (r *Reconciler) healAPI(ctx context.Context, c *sentinel.Client, advertised
 		return
 	}
 	// H7: re-bind auth after MONITOR (Sentinel drops auth-* on REMOVE).
-	if r.cfg.RedisPassword != "" {
-		if err := c.Set(ctx, r.cfg.MasterName, "auth-pass", r.cfg.RedisPassword); err != nil {
-			r.log.Warn("SENTINEL SET auth-pass failed", "err", err)
+	for _, kv := range sentinelAuthAfterMonitor(r.cfg.RedisUsername, r.cfg.RedisPassword) {
+		if err := c.Set(ctx, r.cfg.MasterName, kv[0], kv[1]); err != nil {
+			r.log.Warn("SENTINEL SET failed", "option", kv[0], "err", err)
 		} else {
-			r.log.Info("re-bound sentinel auth-pass after MONITOR")
+			r.log.Info("re-bound sentinel " + kv[0] + " after MONITOR")
 		}
 	}
 	time.Sleep(1 * time.Second)
@@ -479,10 +483,24 @@ func (r *Reconciler) verifyAdvertised(ctx context.Context, c *sentinel.Client, m
 	return ok
 }
 
+// sentinelAuthAfterMonitor is SENTINEL SET auth-user / auth-pass after REMOVE+MONITOR.
+// ACL clusters need both; password-only clusters still get auth-pass.
+func sentinelAuthAfterMonitor(username, password string) [][2]string {
+	var out [][2]string
+	if username != "" {
+		out = append(out, [2]string{"auth-user", username})
+	}
+	if password != "" {
+		out = append(out, [2]string{"auth-pass", password})
+	}
+	return out
+}
+
 // failoverPromoteSafe: only FAILOVER when it is likely to land on oracle M (H4).
 func failoverPromoteSafe(advertised, masterKey, flags string, nodes []oracle.NodeResult) (bool, string) {
 	advDown := strings.Contains(flags, "s_down") || strings.Contains(flags, "o_down") || strings.Contains(flags, "disconnected")
 	advReachableMaster := false
+	advertisedLiveNonOracle := false
 	oracleIsReplicaOrMaster := false
 	for i := range nodes {
 		n := &nodes[i]
@@ -492,12 +510,21 @@ func failoverPromoteSafe(advertised, masterKey, flags string, nodes []oracle.Nod
 		if sameRedisEndpoint(n.Addr, masterKey) && (n.Role == "master" || n.Role == "slave") {
 			oracleIsReplicaOrMaster = true
 		}
-		if sameRedisEndpoint(n.Addr, advertised) && n.Role == "master" && n.Writable {
+		if !sameRedisEndpoint(n.Addr, advertised) {
+			continue
+		}
+		if n.Role == "master" && n.Writable {
 			advReachableMaster = true
+		}
+		if n.Role == "slave" && !sameRedisEndpoint(advertised, masterKey) {
+			advertisedLiveNonOracle = true
 		}
 	}
 	if !oracleIsReplicaOrMaster {
 		return false, "oracle_not_in_topology"
+	}
+	if advertisedLiveNonOracle {
+		return false, "advertised_is_live_non_oracle"
 	}
 	if advReachableMaster && !sameRedisEndpoint(advertised, masterKey) {
 		return false, "advertised_is_live_writable_not_oracle"
@@ -563,17 +590,19 @@ func resolveKey(addr string) string {
 
 func (r *Reconciler) redisDial() redisconn.Dial {
 	return redisconn.Dial{
-		Username: r.cfg.RedisUsername,
-		Password: r.cfg.RedisPassword,
-		TLS:      r.cfg.TLS,
+		Username:      r.cfg.RedisUsername,
+		Password:      r.cfg.RedisPassword,
+		TLS:           r.cfg.TLS,
+		TLSServerName: r.cfg.TLSServerName,
 	}
 }
 
 func (r *Reconciler) sentinelDial(addr string) sentinel.Dial {
 	return sentinel.Dial{
-		Addr:     addr,
-		Username: r.cfg.SentinelUsername,
-		Password: r.cfg.SentinelPassword,
-		TLS:      r.cfg.TLS,
+		Addr:          addr,
+		Username:      r.cfg.SentinelUsername,
+		Password:      r.cfg.SentinelPassword,
+		TLS:           r.cfg.TLS,
+		TLSServerName: r.cfg.TLSServerName,
 	}
 }

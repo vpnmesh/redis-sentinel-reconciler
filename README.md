@@ -44,11 +44,12 @@ go build -o reconciler ./cmd/reconciler
 
 ## Run
 
-One process per Sentinel host, talking to `127.0.0.1:26379` and to **all**
-Redis data-plane addresses on port 6379 (not the Sentinel ports).
+One process per Sentinel host. Dial the **DNS name on the certificate**
+for the local Sentinel and for every Redis seed (port 6379, not 26379).
+`--local-sentinel` does not imply `127.0.0.1`.
 
-Leave `APPLY=false` until you have watched it. The unit already passes
-`--local-sentinel`; everything else comes from `/etc/default/redis-sentinel-reconciler`.
+Leave `APPLY=false` until you have watched it. The unit runs
+`/usr/bin/reconciler --config /etc/default/redis-sentinel-reconciler --local-sentinel`.
 
 ```bash
 sudo systemctl enable --now redis-sentinel-reconciler

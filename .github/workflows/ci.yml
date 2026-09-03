@@ -18,3 +18,11 @@ jobs:
           go-version-file: go.mod
       - run: go test ./...
       - run: go vet ./...
+      - name: CLI flags lockstep
+        run: |
+          go build -o /tmp/reconciler ./cmd/reconciler
+          /tmp/reconciler -h 2>&1 | tee /tmp/rsr-help.txt
+          grep -E -- '-tls$' /tmp/rsr-help.txt
+          grep -- '-redis-username' /tmp/rsr-help.txt
+          grep -- '-sentinel-username' /tmp/rsr-help.txt
+          grep -- '-config' /tmp/rsr-help.txt

@@ -1,10 +1,14 @@
 # /etc/default/redis-sentinel-reconciler
-# The process reads these names (RSR_* also works). Flags override env.
+# Read by the process (--config). This is NOT a systemd EnvironmentFile:
+# $ # space and quotes in passwords stay literal. Quote values with spaces.
+#
+# --local-sentinel does not imply an address. SENTINEL_ADDR is required.
+# On TLS-only clusters dial the DNS name on the certificate, not 127.0.0.1.
 
-SENTINEL_ADDR=127.0.0.1:26379
+SENTINEL_ADDR=db-n1.example.com:26379
 MASTER_NAME=mymaster
-# All Redis/Valkey data nodes, port 6379 — not Sentinel 26379.
-REDIS_ADDRS=10.0.0.1:6379,10.0.0.2:6379,10.0.0.3:6379
+# All Redis/Valkey data nodes, port 6379 — not Sentinel 26379. Required.
+REDIS_ADDRS=db-n1.example.com:6379,db-n2.example.com:6379,db-n3.example.com:6379
 
 # Observe until you have watched a real cluster. APPLY=true is canary-only.
 APPLY=false
@@ -12,17 +16,20 @@ INTERVAL=30s
 HEAL_COOLDOWN=15m
 HEAL_LEASE=true
 EQUAL_EPOCH_ESCALATE=true
-METRICS_ADDR=127.0.0.1:9090
+# 9123 avoids the usual node_exporter :9090 collision. Leave empty to disable.
+METRICS_ADDR=127.0.0.1:9123
 
-# REDIS_PASSWORD=
+# Dedicated sidecar user, not the app ACL user. See docs/configuration.md.
+# REDIS_USERNAME=rsr
+# REDIS_PASSWORD="p$a#ss word"
+# SENTINEL_USERNAME=rsr
 # SENTINEL_PASSWORD=
-# REDIS_USERNAME=
-# SENTINEL_USERNAME=
 
 # RSR_TLS=true
 # RSR_TLS_CA_FILE=/etc/redis/ca.pem
-# Needed when this process dials 127.0.0.1 but the cert is for a hostname:
-# RSR_TLS_SERVER_NAME=db-n1.example.net
+# Only when you must dial an IP (no DNS name on the cert). Hostname dials
+# already use the name in the address; do not set a global SNI for mixed targets.
+# RSR_TLS_SERVER_NAME=db-n1.example.com
 # RSR_TLS_SKIP_VERIFY=false
 # RSR_TLS_CERT=/etc/redis/client.pem
 # RSR_TLS_KEY=/etc/redis/client.key
