@@ -37,6 +37,9 @@ echo "$HELP" | grep -- '-sentinel-username' >/dev/null
 echo "$HELP" | grep -- '-sentinel-redis-username' >/dev/null
 
 install -m 0644 README.md "$OUT/stage/${TARBALL_STEM}/README.md"
+install -m 0644 LICENSE "$OUT/stage/${TARBALL_STEM}/LICENSE"
+install -m 0644 NOTICE "$OUT/stage/${TARBALL_STEM}/NOTICE"
+
 install -d "$OUT/stage/${TARBALL_STEM}/systemd"
 install -m 0644 deploy/systemd/redis-sentinel-reconciler.service \
   "$OUT/stage/${TARBALL_STEM}/systemd/redis-sentinel-reconciler.service"
@@ -56,6 +59,10 @@ install -m 0644 deploy/systemd/redis-sentinel-reconciler.service \
   "$DEB_ROOT/lib/systemd/system/redis-sentinel-reconciler.service"
 install -m 0640 deploy/systemd/redis-sentinel-reconciler.default \
   "$DEB_ROOT/etc/default/redis-sentinel-reconciler"
+install -d "$DEB_ROOT/usr/share/doc/${NAME}"
+install -m 0644 packaging/deb/copyright "$DEB_ROOT/usr/share/doc/${NAME}/copyright"
+install -m 0644 LICENSE "$DEB_ROOT/usr/share/doc/${NAME}/LICENSE"
+install -m 0644 NOTICE "$DEB_ROOT/usr/share/doc/${NAME}/NOTICE"
 install -m 0755 packaging/deb/postinst "$DEB_ROOT/DEBIAN/postinst"
 install -m 0755 packaging/deb/prerm "$DEB_ROOT/DEBIAN/prerm"
 install -m 0755 packaging/deb/postrm "$DEB_ROOT/DEBIAN/postrm"

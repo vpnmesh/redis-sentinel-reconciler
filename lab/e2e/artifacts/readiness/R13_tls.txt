@@ -1,7 +1,0 @@
-### R13_tls 2026-08-09T10:20:54Z
-
-path=/home/efremov/myprojects/vpnmesh/redis-sentinel-reconciler/docs/recipes/TLS-ACL.md
-7:requirepass <secret>
-9:sentinel auth-pass mymaster <secret>
-31:After `REMOVE+MONITOR`, reconciler re-binds `SENTINEL SET <name> auth-pass` when `--redis-password` is set (H7).
-39:Passwordless by default. Optional: set `requirepass` in `lab/config/redis-*.conf` and pass passwords into reconciler/writer - see `lab/README.md` auth note.

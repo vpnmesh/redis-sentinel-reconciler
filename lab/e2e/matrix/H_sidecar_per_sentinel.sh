@@ -57,6 +57,11 @@ done
 # Heal sequentially (avoid concurrent FAILOVER races - documented hazard).
 for i in 1 2 3 4 5; do
   out=$(reconciler_once true "sentinel-$i")
+  # Docker 127.0.0.11 can still flake once even after IP dial; retry one tick.
+  if echo "$out" | grep -qE 'server misbehaving|get-master-addr failed'; then
+    sleep 2
+    out=$(reconciler_once true "sentinel-$i")
+  fi
   echo "$out" | tee "$ART_DIR/sidecar-$i-apply.log" >/dev/null
   if ! echo "$out" | grep -q 'heal succeeded'; then
     bad "SPEC-SIDECAR" "reconciler for sentinel-$i did not heal; tail=$(echo "$out" | tail -5 | tr '\n' ' | ')"

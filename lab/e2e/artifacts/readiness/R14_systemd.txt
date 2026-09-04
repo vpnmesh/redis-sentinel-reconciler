@@ -1,4 +1,0 @@
-### R14_systemd 2026-08-09T10:20:54Z
-
-path=/home/efremov/myprojects/vpnmesh/redis-sentinel-reconciler/deploy/systemd/redis-sentinel-reconciler.service
-12:ExecStart=/usr/local/bin/reconciler \

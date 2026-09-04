@@ -1,2 +1,26 @@
+# Build
 /bin/
 /dist/
+/reconciler
+/writer
+
+# Go test / coverage
+*.test
+*.out
+coverage.out
+coverage.html
+*.coverprofile
+
+# Lab run output (make e2e / e2e-hazards / e2e-stress / e2e-readiness)
+/lab/e2e/artifacts/
+
+# Local secrets and editor junk
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.idea/
+.DS_Store
+*~
+*.swp

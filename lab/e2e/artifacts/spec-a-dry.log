@@ -1,8 +1,0 @@
- Container lab-reconciler-run-36ff4737dfee Creating 
- Container lab-reconciler-run-36ff4737dfee Created 
-{"time":"2026-08-07T19:04:03.317555Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":false,"once":true,"sentinels":["sentinel-1:26379"]}
-{"time":"2026-08-07T19:04:06.473952326Z","level":"WARN","msg":"redis probe failed","addr":"10.255.255.254:6379","err":"i/o timeout"}
-{"time":"2026-08-07T19:04:06.628355066Z","level":"INFO","msg":"oracle writable master","master":"redis-1:6379"}
-{"time":"2026-08-07T19:04:06.628747916Z","level":"WARN","msg":"DIVERGE","sentinel":"sentinel-1:26379","advertised":"10.255.255.254:6379","oracle":"redis-1:6379"}
-{"time":"2026-08-07T19:04:06.628763395Z","level":"INFO","msg":"dry-run would_heal","actions":"SENTINEL FAILOVER|REMOVE+MONITOR","sentinel":"sentinel-1:26379","master_name":"mymaster"}
-{"time":"2026-08-07T19:04:06.628812348Z","level":"INFO","msg":"reconciler once complete"}

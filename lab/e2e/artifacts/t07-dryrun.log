@@ -1,8 +1,0 @@
- Container lab-reconciler-run-1f4b09cc675c Creating 
- Container lab-reconciler-run-1f4b09cc675c Created 
-{"time":"2026-08-07T18:12:20.1328106Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":false,"once":true,"sentinels":["sentinel-1:26379"]}
-{"time":"2026-08-07T18:12:23.293012983Z","level":"WARN","msg":"redis probe failed","addr":"10.255.255.254:6379","err":"i/o timeout"}
-{"time":"2026-08-07T18:12:23.293056215Z","level":"INFO","msg":"oracle writable master","master":"redis-2:6379"}
-{"time":"2026-08-07T18:12:23.293640298Z","level":"WARN","msg":"DIVERGE","sentinel":"sentinel-1:26379","advertised":"10.255.255.254:6379","oracle":"redis-2:6379"}
-{"time":"2026-08-07T18:12:23.293647892Z","level":"INFO","msg":"dry-run would_heal","actions":"SENTINEL FAILOVER|REMOVE+MONITOR","sentinel":"sentinel-1:26379","master_name":"mymaster"}
-{"time":"2026-08-07T18:12:23.293685573Z","level":"INFO","msg":"reconciler once complete"}

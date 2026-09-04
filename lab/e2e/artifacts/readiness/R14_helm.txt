@@ -1,4 +1,0 @@
-### R14_helm 2026-08-09T10:20:54Z
-
-path=/home/efremov/myprojects/vpnmesh/redis-sentinel-reconciler/deploy/helm/redis-sentinel-reconciler/Chart.yaml
-3:name: redis-sentinel-reconciler

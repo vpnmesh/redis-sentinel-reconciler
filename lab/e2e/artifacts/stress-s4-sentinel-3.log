@@ -1,8 +1,0 @@
- Container lab-reconciler-1-run-eda7ca42fc68 Creating 
- Container lab-reconciler-1-run-eda7ca42fc68 Created 
-{"time":"2026-08-09T09:27:16.966253759Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"local_sentinel":true,"heal_cooldown":0,"sentinels":["sentinel-3:26379"]}
-{"time":"2026-08-09T09:27:17.676222812Z","level":"WARN","msg":"redis probe failed","addr":"10.255.255.254:6379","err":"dial tcp 10.255.255.254:6379: i/o timeout","seed":false}
-{"time":"2026-08-09T09:27:17.676271042Z","level":"INFO","msg":"oracle writable master","master":"172.26.0.2:6379"}
-{"time":"2026-08-09T09:27:17.676605034Z","level":"WARN","msg":"DIVERGE","sentinel":"sentinel-3:26379","advertised":"10.255.255.254:6379","oracle":"172.26.0.2:6379","equal_epoch_trap":false}
-{"time":"2026-08-09T09:27:17.677204109Z","level":"ERROR","msg":"ALERT","event":"apply_refused","reason":"heal_lease_held","oracle":"172.26.0.2:6379"}
-{"time":"2026-08-09T09:27:17.677235237Z","level":"INFO","msg":"reconciler once complete"}

@@ -1,5 +1,0 @@
-{"time":"2026-08-09T12:32:07.507282954Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":2000000000,"apply":true,"once":false,"local_sentinel":true,"heal_cooldown":900000000000,"sentinels":["sentinel-1:26379"]}
-{"time":"2026-08-09T12:32:07.507655356Z","level":"INFO","msg":"metrics listening","addr":":19092"}
-{"time":"2026-08-09T12:32:07.768287288Z","level":"ERROR","msg":"ALERT","reason":"dual_master","writable_count":2}
-{"time":"2026-08-09T12:32:10.00501239Z","level":"ERROR","msg":"ALERT","reason":"dual_master","writable_count":2}
-{"time":"2026-08-09T12:32:12.297479398Z","level":"ERROR","msg":"ALERT","reason":"dual_master","writable_count":2}

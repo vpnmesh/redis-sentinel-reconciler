@@ -1,5 +1,0 @@
- Container lab-reconciler-run-c320d249bed1 Creating 
- Container lab-reconciler-run-c320d249bed1 Created 
-{"time":"2026-08-07T19:11:10.765860811Z","level":"INFO","msg":"reconciler started","master_name":"mymaster","interval":5000000000,"apply":true,"once":true,"sentinels":["sentinel-1:26379"]}
-{"time":"2026-08-07T19:11:11.024312748Z","level":"ERROR","msg":"ALERT","reason":"dual_master","writable_count":2}
-{"time":"2026-08-07T19:11:11.024386256Z","level":"INFO","msg":"reconciler once complete"}

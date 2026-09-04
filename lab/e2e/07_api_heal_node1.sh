@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# T07 - API-only product path:
+# T07 - API-only product path (5 Redis + 5 Sentinel):
 # 1) stop redis-1 + sentinel-1 together
 # 2) after failover + rejoin, inject wrong master on sentinel-1 via SENTINEL API (no conf edit)
 # 3) confirm DIVERGE
@@ -16,13 +16,13 @@ restore_steady_state || true
 # Prefer redis-1 as initial master for this scenario.
 if [[ "$(redis_role redis-1)" != "master" ]]; then
   tip=$(svc_ip redis-1)
-  for s in redis-2 redis-3; do
+  for s in "${REDIS_SVCS[@]}"; do
+    [[ "$s" == "redis-1" ]] && continue
     compose exec -T "$s" redis-cli REPLICAOF "$tip" 6379 >/dev/null || true
   done
   compose exec -T redis-1 redis-cli REPLICAOF NO ONE >/dev/null || true
-  for s in sentinel-1 sentinel-2 sentinel-3; do
-    compose exec -T "$s" redis-cli -p 26379 SENTINEL REMOVE "$MASTER_NAME" >/dev/null 2>&1 || true
-    compose exec -T "$s" redis-cli -p 26379 SENTINEL MONITOR "$MASTER_NAME" "$tip" 6379 2 >/dev/null 2>&1 || true
+  for s in "${SENTINEL_SVCS[@]}"; do
+    api_point_sentinel "$s" "$tip" || true
   done
   sleep 3
 fi
@@ -66,49 +66,37 @@ wait_until "single writable after rejoin" 60 single_writable || true
 
 master_svc=$(current_master_svc) || master_svc=""
 oracle_ip=$(svc_ip "${master_svc:-redis-2}" 2>/dev/null || echo "$live_ip")
-log "step2: inject wrong master on sentinel-1 via SENTINEL API only (peers paused)"
-fake_ip="10.255.255.254"
-compose stop sentinel-2 sentinel-3
-compose exec -T sentinel-1 redis-cli -p 26379 SENTINEL REMOVE "$MASTER_NAME" >/dev/null
-compose exec -T sentinel-1 redis-cli -p 26379 SENTINEL MONITOR "$MASTER_NAME" "$fake_ip" 6379 2 >/dev/null
+log "step2: inject wrong master on sentinel-1 via SENTINEL API only (all peers paused)"
+# Pause sentinel-2..5. Leaving 4/5 up lets Hello rewrite the lie before --once.
+pause_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
+api_lie_sentinel sentinel-1
 
 lie_ok() {
   local h
   h=$(sentinel_master_host sentinel-1 2>/dev/null || true)
-  [[ "$h" == "$fake_ip" ]]
+  [[ "$h" == "$FAKE_MASTER_IP" ]]
 }
 if ! wait_until "sentinel-1 advertises fake master" 20 lie_ok; then
   bad "T07" "API lie inject failed (host=$(sentinel_master_host sentinel-1))"
-  docker start "$(svc_cid sentinel-2)" "$(svc_cid sentinel-3)" >/dev/null 2>&1 || true
+  start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
   return 0
 fi
 
 log "step3: confirm problem (DIVERGE vs oracle=$oracle_ip)"
-[[ "$(writable_count)" == "1" ]] || { bad "T07" "need unique writable before heal"; return 0; }
+[[ "$(writable_count)" == "1" ]] || { bad "T07" "need unique writable before heal"; start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5; return 0; }
 
-# Rebuild reconciler image so --once / API heal is present, then run inside lab net.
-compose build reconciler >/dev/null
-dry_out=$(compose run --rm --no-deps --entrypoint reconciler reconciler \
-  --sentinel-addr=sentinel-1:26379 \
-  --master-name="$MASTER_NAME" \
-  --local-sentinel \
-  --redis-addrs=redis-1:6379,redis-2:6379,redis-3:6379,redis-4:6379,redis-5:6379 \
-  --once 2>&1)
+# One-shot via reconciler-1 (there is no Compose service named "reconciler").
+dry_out=$(reconciler_once false sentinel-1)
 echo "$dry_out" | tee "$ART_DIR/t07-dryrun.log" >/dev/null
 if ! echo "$dry_out" | grep -qE 'DIVERGE|would_heal'; then
   bad "T07" "dry-run did not report DIVERGE/would_heal"
-  docker start "$(svc_cid sentinel-2)" "$(svc_cid sentinel-3)" >/dev/null 2>&1 || true
+  start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
   return 0
 fi
 log "confirmed DIVERGE (API lie)"
 
 log "step4: heal with reconciler --apply --once (API only, in-network)"
-heal_out=$(compose run --rm --no-deps --entrypoint reconciler reconciler \
-  --sentinel-addr=sentinel-1:26379 \
-  --master-name="$MASTER_NAME" \
-  --local-sentinel \
-  --redis-addrs=redis-1:6379,redis-2:6379,redis-3:6379,redis-4:6379,redis-5:6379 \
-  --apply --once 2>&1)
+heal_out=$(reconciler_once true sentinel-1)
 echo "$heal_out" | tee "$ART_DIR/t07-apply.log" >/dev/null
 
 healed() {
@@ -120,7 +108,7 @@ healed() {
 if ! echo "$heal_out" | grep -q 'heal succeeded'; then
   if ! wait_until "sentinel-1 matches oracle after apply" 30 healed; then
     bad "T07" "apply heal failed; tail=$(echo "$heal_out" | tail -8 | tr '\n' ' | ')"
-    docker start "$(svc_cid sentinel-2)" "$(svc_cid sentinel-3)" >/dev/null 2>&1 || true
+    start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
     restore_steady_state || true
     return 0
   fi
@@ -128,20 +116,18 @@ fi
 
 after=$(sentinel_master_host sentinel-1)
 if [[ "$after" != "$oracle_ip" ]]; then
-  # Allow brief settle then re-check
   wait_until "advertise==oracle" 20 healed || true
   after=$(sentinel_master_host sentinel-1)
 fi
 if [[ "$after" != "$oracle_ip" ]]; then
   bad "T07" "post-heal advertise $after != oracle $oracle_ip"
-  docker start "$(svc_cid sentinel-2)" "$(svc_cid sentinel-3)" >/dev/null 2>&1 || true
+  start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
   restore_steady_state || true
   return 0
 fi
 log "healed sentinel-1 -> $after"
 
-docker start "$(svc_cid sentinel-2)" >/dev/null 2>&1 || true
-docker start "$(svc_cid sentinel-3)" >/dev/null 2>&1 || true
+start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
 sleep 3
 single_writable || { bad "T07" "writable not unique after heal"; restore_steady_state || true; return 0; }
 

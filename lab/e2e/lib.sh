@@ -212,10 +212,22 @@ reconciler_once() {
     shift
     extra+=("$@")
   fi
-  local joined
+  local joined sentinel_addr tip
   joined=$(redis_seed_addrs)
+  # Dial Sentinel by container IP. Docker embedded DNS (127.0.0.11) flakes
+  # with "server misbehaving" under compose run / chaos (SPEC-SIDECAR, T07).
+  if [[ "$local_s" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    sentinel_addr="${local_s}:26379"
+  else
+    tip=$(svc_ip "$local_s" 2>/dev/null || true)
+    if [[ -n "$tip" ]]; then
+      sentinel_addr="${tip}:26379"
+    else
+      sentinel_addr="${local_s}:26379"
+    fi
+  fi
   compose run --rm --no-deps --entrypoint reconciler reconciler-1 \
-    --sentinel-addr="${local_s}:26379" \
+    --sentinel-addr="$sentinel_addr" \
     --master-name="$MASTER_NAME" \
     --local-sentinel \
     --quorum="$QUORUM" \

@@ -1,7 +1,0 @@
-### R16_roll 2026-08-09T10:20:54Z
-
-path=/home/efremov/myprojects/vpnmesh/redis-sentinel-reconciler/docs/ROLLOUT.md
-1:# Rollout checklist (R16) - observe -> canary -> fleet
-3:## M1 / L0 - Observe (required before any `--apply`)
-12:## M3 / L2 - Canary apply (one host)
-22:- [ ] Canary stable >= soak window

@@ -16,6 +16,7 @@ make down               # wipe volumes
 ```
 
 `E2E_RESET=0 make e2e-matrix` reuses a stack that is already up.
+Run output lands in `lab/e2e/artifacts/` and is gitignored.
 
 Host ports: Redis `63791–63795`, Sentinel `26379–26383`. Network name
 `redis-sentinel-lab`.

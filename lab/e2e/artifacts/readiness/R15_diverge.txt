@@ -1,4 +1,0 @@
-### R15_diverge 2026-08-09T10:20:54Z
-
-path=/home/efremov/myprojects/vpnmesh/redis-sentinel-reconciler/docs/runbooks/diverge.md
-4:**Symptom:** logs `DIVERGE` / metric `diverge`; clients may hit wrong host until healed.

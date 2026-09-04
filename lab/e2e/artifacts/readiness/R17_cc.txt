@@ -1,9 +1,0 @@
-### R17_cc 2026-08-09T10:20:54Z
-
-path=/home/efremov/myprojects/vpnmesh/redis-sentinel-reconciler/docs/CLIENT-CONTRACT.md
-5:| Applications | **Sentinel discovery** + **write-probe** (retry other node / refresh master) |
-6:| Reconciler | **Writable Redis oracle** to heal Sentinel **ads only** |
-7:| Stock Sentinel | Failover + `REPLICAOF` demote |
-9:Reconciler is **not** a client discovery API and must not replace Sentinel URLs in apps.
-11:vpnmesh reference defense: `preferHealthySentinels` + write-probe in LB/redis client packages.
-13:If ads diverge, clients without write-probe will fail until heal - treat write-probe as **required** for large fleets.

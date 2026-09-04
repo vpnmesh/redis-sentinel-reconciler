@@ -86,3 +86,15 @@ Docker Compose lab (5 Redis + 5 Sentinel) lives under [`lab/`](lab/README.md):
 ```bash
 make e2e
 ```
+
+## License
+
+SPDX-License-Identifier: Apache-2.0
+
+Copyright 2026 Vyskrebtsev Aleksandr, IE.
+
+You may run, modify, and ship this sidecar under the Apache License 2.0.
+See [LICENSE](LICENSE) and [NOTICE](NOTICE). Patches: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+VpnMesh is a trademark of Vyskrebtsev Aleksandr, IE. The license covers
+the software, not the name.
