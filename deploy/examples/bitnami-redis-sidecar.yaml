@@ -1,0 +1,61 @@
+# Optional: Bitnami Redis+Sentinel in-pod sidecar (production-shaped).
+#
+# Same network namespace as Sentinel → --sentinel-addr=127.0.0.1:26379
+# List every Redis pod that can become master (port 6379).
+#
+#   helm upgrade --install redis oci://registry-1.docker.io/bitnamicharts/redis \
+#     --version 25.5.3 \
+#     -f your-redis-values.yaml \
+#     -f deploy/examples/bitnami-redis-sidecar.yaml
+#
+# Do *not* also install deploy/helm/redis-sentinel-reconciler in this
+# namespace — that would be two healers per Sentinel.
+#
+# Leave apply off until /metrics looks quiet, then add --apply to args.
+
+replica:
+  sidecars:
+    - name: redis-sentinel-reconciler
+# Pin a release tag in production (same as the GitHub Release, without v).
+      image: vpnmesh/redis-sentinel-reconciler:latest
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        capabilities:
+          drop: ["ALL"]
+      args:
+        - --sentinel-addr=127.0.0.1:26379
+        - --master-name=mymaster
+        - --local-sentinel
+        - --interval=30s
+        - --heal-cooldown=15m
+        - --redis-addrs=redis-node-0.redis-headless:6379
+        - --redis-addrs=redis-node-1.redis-headless:6379
+        - --redis-addrs=redis-node-2.redis-headless:6379
+        - --metrics-addr=:9123
+        # - --apply
+      env:
+        - name: RSR_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis
+              key: redis-password
+        - name: RSR_SENTINEL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis
+              key: redis-password
+      ports:
+        - name: metrics
+          containerPort: 9123
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi

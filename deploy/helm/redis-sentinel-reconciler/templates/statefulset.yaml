@@ -17,27 +17,26 @@ spec:
       labels:
         {{- include "rsr.labels" . | nindent 8 }}
     spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: reconciler
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ include "rsr.image" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if .Values.sentinelFromOrdinal.enabled }}
-          command: ["/bin/sh", "-c"]
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           args:
-            - |
-              set -eu
-              i="${POD_NAME##*-}"
-              export SENTINEL_ADDR="{{ .Values.sentinelFromOrdinal.prefix }}${i}{{ .Values.sentinelFromOrdinal.suffix }}"
-              exec /usr/local/bin/reconciler "$@"
-            - reconciler
-            {{- include "rsr.commonArgs" . | nindent 12 }}
-          {{- else }}
-          args:
-            {{- if .Values.sentinelAddr }}
+            {{- if .Values.sentinelFromOrdinal.enabled }}
+            - --sentinel-from-ordinal-prefix={{ .Values.sentinelFromOrdinal.prefix }}
+            - --sentinel-from-ordinal-suffix={{ .Values.sentinelFromOrdinal.suffix }}
+            {{- else if .Values.sentinelAddr }}
             - --sentinel-addr={{ .Values.sentinelAddr }}
             {{- end }}
             {{- include "rsr.commonArgs" . | nindent 12 }}
-          {{- end }}
           env:
             - name: POD_NAME
               valueFrom:

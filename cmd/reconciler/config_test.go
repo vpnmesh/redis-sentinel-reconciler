@@ -263,6 +263,51 @@ tls-skip-verify=true
 	}
 }
 
+func TestSentinelAddrFromOrdinal(t *testing.T) {
+	cases := []struct {
+		pod, prefix, suffix, want string
+	}{
+		{"rsr-0", "redis-node-", ".redis-headless:26379", "redis-node-0.redis-headless:26379"},
+		{"rsr-12", "redis-node-", ".redis-headless:26379", "redis-node-12.redis-headless:26379"},
+		{"rsr", "redis-node-", ":26379", ""},
+		{"rsr-x", "redis-node-", ":26379", ""},
+		{"", "redis-node-", ":26379", ""},
+		{"rsr-0", "", ":26379", ""},
+	}
+	for _, tc := range cases {
+		got := sentinelAddrFromOrdinal(tc.pod, tc.prefix, tc.suffix)
+		if got != tc.want {
+			t.Errorf("pod=%q prefix=%q suffix=%q got %q want %q", tc.pod, tc.prefix, tc.suffix, got, tc.want)
+		}
+	}
+}
+
+func TestParseConfig_SentinelFromOrdinal(t *testing.T) {
+	cfg, err := parseConfig([]string{
+		"--sentinel-from-ordinal-prefix=redis-node-",
+		"--sentinel-from-ordinal-suffix=.redis-headless:26379",
+		"--redis-addrs=redis-node-0.redis-headless:6379",
+	}, getenvMap(map[string]string{"POD_NAME": "rsr-1"}), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.SentinelAddrs[0]; got != "redis-node-1.redis-headless:26379" {
+		t.Fatalf("derived sentinel: %s", got)
+	}
+
+	cfg, err = parseConfig([]string{
+		"--sentinel-addr=explicit:26379",
+		"--sentinel-from-ordinal-prefix=redis-node-",
+		"--redis-addrs=a:6379",
+	}, getenvMap(map[string]string{"POD_NAME": "rsr-1"}), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SentinelAddrs[0] != "explicit:26379" {
+		t.Fatalf("explicit sentinel must win: %v", cfg.SentinelAddrs)
+	}
+}
+
 func TestParseConfig_DefaultIntervalAndLocal(t *testing.T) {
 	cfg, err := parseConfig([]string{"--sentinel-addr=a:26379", "--redis-addrs=a:6379"}, getenvMap(nil), io.Discard)
 	if err != nil {

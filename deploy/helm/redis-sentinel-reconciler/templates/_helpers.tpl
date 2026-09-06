@@ -1,3 +1,11 @@
+{{- define "rsr.image" -}}
+{{- $tag := .Values.image.tag | default .Chart.AppVersion -}}
+{{- if or (eq $tag "") (eq $tag "0.0.0") -}}
+{{- $tag = "latest" -}}
+{{- end -}}
+{{- printf "%s:%s" .Values.image.repository $tag -}}
+{{- end -}}
+
 {{- define "rsr.fullname" -}}
 {{- if .Values.nameOverride -}}
 {{- .Values.nameOverride | trunc 63 | trimSuffix "-" -}}

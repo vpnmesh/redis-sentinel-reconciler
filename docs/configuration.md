@@ -185,3 +185,4 @@ real cluster:
 | `--heal-lease-ttl` | cooldown / 15m | |
 | `--lease-holder` | hostname | |
 | `--allow-global-apply` | `false` | Leave it off. |
+| `--sentinel-from-ordinal-prefix` / `--sentinel-from-ordinal-suffix` | empty | Kubernetes StatefulSet: with `POD_NAME`, `SENTINEL_ADDR` becomes `prefix` + ordinal + `suffix` (scratch image has no shell). |

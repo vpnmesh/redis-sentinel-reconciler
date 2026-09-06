@@ -157,12 +157,44 @@ func TestHelmChartStatefulSetAndDaemonSet(t *testing.T) {
 	if !strings.Contains(string(sts), "kind: StatefulSet") || !strings.Contains(string(sts), "sentinelFromOrdinal") {
 		t.Fatal("StatefulSet template must pair Sentinel via ordinal")
 	}
+	if strings.Contains(string(sts), "/bin/sh") {
+		t.Fatal("scratch image has no shell; STS must derive SENTINEL_ADDR in the binary")
+	}
+	if !strings.Contains(string(sts), "sentinel-from-ordinal-prefix") {
+		t.Fatal("STS must pass --sentinel-from-ordinal-prefix (POD_NAME ordinal)")
+	}
+	if !strings.Contains(string(sts), `include "rsr.image"`) || !strings.Contains(string(ds), `include "rsr.image"`) {
+		t.Fatal("workloads must pull the image via rsr.image (tag from Chart.appVersion)")
+	}
+	helpers, err := os.ReadFile(filepath.Join(root, "deploy/helm/redis-sentinel-reconciler/templates/_helpers.tpl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(helpers), "rsr.image") || !strings.Contains(string(helpers), "Chart.AppVersion") {
+		t.Fatal("rsr.image must default the tag from Chart.appVersion")
+	}
+	chartMeta, err := os.ReadFile(filepath.Join(root, "deploy/helm/redis-sentinel-reconciler/Chart.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(chartMeta), "version: 0.0.0") || !strings.Contains(string(chartMeta), `appVersion: "0.0.0"`) {
+		t.Fatal("Chart.yaml version is a placeholder; release.yml stamps the git tag")
+	}
 	shippedVals, err := os.ReadFile(filepath.Join(root, "deploy/helm/redis-sentinel-reconciler/values.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(shippedVals), "apply: false") {
 		t.Fatal("shipped Helm chart must stay apply: false until Owner flips it")
+	}
+	if !strings.Contains(string(shippedVals), "vpnmesh/redis-sentinel-reconciler") {
+		t.Fatal("shipped Helm image must be Docker Hub vpnmesh/redis-sentinel-reconciler")
+	}
+	if strings.Contains(string(shippedVals), `tag: "0.`) {
+		t.Fatal("image.tag must stay empty so Chart.appVersion / latest follow the git tag")
+	}
+	if !strings.Contains(string(shippedVals), "runAsUser: 65534") || !strings.Contains(string(shippedVals), "readOnlyRootFilesystem: true") {
+		t.Fatal("shipped Helm must run as nobody (65534) with a read-only rootfs")
 	}
 	kindVals, err := os.ReadFile(filepath.Join(root, "lab/kind/values-rsr.yaml"))
 	if err != nil {
@@ -263,5 +295,60 @@ func TestHelmChartStatefulSetAndDaemonSet(t *testing.T) {
 	}
 	if !strings.Contains(string(runAll), "08_kill_two_nodes.sh") || !strings.Contains(string(runAll), "09_failover_sentinel_down.sh") {
 		t.Fatal("smoke suite must include T08 and T09")
+	}
+	readme, err := os.ReadFile(filepath.Join(root, "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"Sentinel's advertised master must be the Redis that accepts writes",
+		"get-master-addr-by-name",
+		"sentinel.conf",
+		"vpnmesh/redis-sentinel-reconciler",
+		"hub.docker.com/r/vpnmesh/redis-sentinel-reconciler",
+		"docker pull vpnmesh/redis-sentinel-reconciler:latest",
+		"helm install rsr oci://ghcr.io/vpnmesh/charts/redis-sentinel-reconciler",
+		"docs/docker-hub.md",
+		"docs/outreach.md",
+	} {
+		if !strings.Contains(string(readme), want) {
+			t.Errorf("README missing %q", want)
+		}
+	}
+	sidecar, err := os.ReadFile(filepath.Join(root, "deploy/examples/bitnami-redis-sidecar.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(sidecar), "vpnmesh/redis-sentinel-reconciler:latest") || !strings.Contains(string(sidecar), "127.0.0.1:26379") {
+		t.Fatal("Bitnami sidecar example must use Docker Hub :latest and localhost Sentinel")
+	}
+	if !strings.Contains(string(sidecar), "runAsUser: 65534") {
+		t.Fatal("Bitnami sidecar example must run as nobody (scratch UID)")
+	}
+	df, err := os.ReadFile(filepath.Join(root, "Dockerfile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(df), "FROM scratch") || !strings.Contains(string(df), "USER 65534:65534") {
+		t.Fatal("runtime image must be scratch running as 65534")
+	}
+	rel, err := os.ReadFile(filepath.Join(root, ".github/workflows/release.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(rel), "vpnmesh/redis-sentinel-reconciler") || !strings.Contains(string(rel), "DOCKERHUB_TOKEN") {
+		t.Fatal("release workflow must push Docker Hub on v* tags")
+	}
+	if strings.Contains(string(rel), "ghcr.io/vpnmesh/redis-sentinel-reconciler") {
+		t.Fatal("runtime image is Docker Hub only; do not also tag GHCR")
+	}
+	if !strings.Contains(string(rel), "oci://ghcr.io/vpnmesh/charts") || !strings.Contains(string(rel), "helm push") {
+		t.Fatal("release workflow must publish the OCI Helm chart to GHCR")
+	}
+	if !strings.Contains(string(rel), "--version") || !strings.Contains(string(rel), "--app-version") {
+		t.Fatal("helm package must stamp Chart.yaml from the git tag")
+	}
+	if strings.Contains(string(rel), "Chart.yaml version=") {
+		t.Fatal("do not require a manual Chart.yaml bump")
 	}
 }

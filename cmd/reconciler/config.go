@@ -70,6 +70,8 @@ func parseConfig(args []string, getenv getenvFunc, errOut io.Writer) (reconcile.
 	tlsServer := fs.String("tls-server-name", envStr(getenv, "", "tls-server-name"), "SNI only when the dial target is an IP; hostname dials use the name in the address")
 	tlsCert := fs.String("tls-cert", envStr(getenv, "", "tls-cert", "TLS_CERT_FILE"), "Client certificate PEM (mTLS)")
 	tlsKey := fs.String("tls-key", envStr(getenv, "", "tls-key", "TLS_KEY_FILE"), "Client key PEM (mTLS)")
+	fromPrefix := fs.String("sentinel-from-ordinal-prefix", envStr(getenv, "", "sentinel-from-ordinal-prefix"), "With POD_NAME: SENTINEL_ADDR = prefix + ordinal + suffix (scratch STS, no shell)")
+	fromSuffix := fs.String("sentinel-from-ordinal-suffix", envStr(getenv, "", "sentinel-from-ordinal-suffix"), "See --sentinel-from-ordinal-prefix")
 
 	fs.Var(&sentinelAddrs, "sentinel-addr", "required: this host's Sentinel, host:26379 (repeat or comma-separate). Env: SENTINEL_ADDR / RSR_SENTINEL_ADDR. TLS: DNS name on the cert, not 127.0.0.1")
 	fs.Var(&redisAddrs, "redis-addrs", "required: every Redis/Valkey data node that can become master, port 6379; the whole cluster, not only this host (repeat or comma-separate). Env: REDIS_ADDRS / RSR_REDIS_ADDRS")
@@ -81,6 +83,13 @@ func parseConfig(args []string, getenv getenvFunc, errOut io.Writer) (reconcile.
 	if len(sentinelAddrs) == 0 {
 		if err := sentinelAddrs.Set(envStr(getenv, "", "sentinel-addr")); err != nil {
 			return reconcile.Config{}, err
+		}
+	}
+	if len(sentinelAddrs) == 0 {
+		if derived := sentinelAddrFromOrdinal(getenv("POD_NAME"), *fromPrefix, *fromSuffix); derived != "" {
+			if err := sentinelAddrs.Set(derived); err != nil {
+				return reconcile.Config{}, err
+			}
 		}
 	}
 	if len(redisAddrs) == 0 {
@@ -185,6 +194,23 @@ func requiredAddrErr(configPath string, missingSentinel, missingRedis bool) erro
 	}
 	b.WriteString("\nSee also: reconciler -h\n")
 	return errors.New(strings.TrimSuffix(b.String(), "\n"))
+}
+
+func sentinelAddrFromOrdinal(podName, prefix, suffix string) string {
+	if prefix == "" || podName == "" {
+		return ""
+	}
+	i := strings.LastIndex(podName, "-")
+	if i < 0 || i+1 >= len(podName) {
+		return ""
+	}
+	ord := podName[i+1:]
+	for _, r := range ord {
+		if r < '0' || r > '9' {
+			return ""
+		}
+	}
+	return prefix + ord + suffix
 }
 
 // envNames maps --foo-bar to FOO_BAR and RSR_FOO_BAR.

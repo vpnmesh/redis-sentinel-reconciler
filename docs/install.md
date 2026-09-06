@@ -64,9 +64,44 @@ and runs `daemon-reload`. It does not enable the unit.
 
 ## Kubernetes
 
-Chart in this repo (`deploy/helm/redis-sentinel-reconciler`).
+Runtime image (each `v*` tag):
+[`vpnmesh/redis-sentinel-reconciler`](https://hub.docker.com/r/vpnmesh/redis-sentinel-reconciler)
+on Docker Hub ([docker-hub.md](docker-hub.md)). Helm chart OCI:
+`oci://ghcr.io/vpnmesh/charts/redis-sentinel-reconciler`.
 
-**DaemonSet** (default): one pod per node, `hostNetwork`, `SENTINEL_ADDR` is the Sentinel on that node.
+You do **not** run `helm package` yourself to publish. A `v*` tag on
+GitHub Actions packages the chart from `deploy/helm/redis-sentinel-reconciler`
+(`helm package --version/--app-version` from the tag, so you do not bump
+`Chart.yaml`) and `helm push`es it to GHCR. Empty `image.tag` follows
+that `appVersion`, so the chart pulls
+`vpnmesh/redis-sentinel-reconciler:<same-as-tag>`. One extra step after
+the **first** chart appears: GitHub → Packages →
+`charts/redis-sentinel-reconciler` → visibility **Public**.
+`GITHUB_TOKEN` already logs into `ghcr.io` for that push. Docker Hub
+does not host Helm charts.
+
+Fill **both** `sentinelAddr` (this Sentinel) and `redisAddrs` (every data
+node, port 6379). Empty lists fail closed. `apply` stays false until you
+flip it.
+
+Smoke the published image:
+
+```bash
+docker pull vpnmesh/redis-sentinel-reconciler:latest
+docker run --rm vpnmesh/redis-sentinel-reconciler:latest -h
+```
+
+**DaemonSet** (bare-metal / `hostNetwork`): one pod per node. The chart
+already pulls Docker Hub; no `--set image.*` needed.
+
+```bash
+helm install rsr oci://ghcr.io/vpnmesh/charts/redis-sentinel-reconciler \
+  --set sentinelAddr=db-n1.example.com:26379 \
+  --set 'redisAddrs={db-n1.example.com:6379,db-n2.example.com:6379,db-n3.example.com:6379}'
+```
+
+From this repo without OCI (git `Chart.yaml` is `0.0.0` → image
+`:latest`):
 
 ```bash
 helm install rsr deploy/helm/redis-sentinel-reconciler \
@@ -74,14 +109,14 @@ helm install rsr deploy/helm/redis-sentinel-reconciler \
   --set 'redisAddrs={db-n1.example.com:6379,db-n2.example.com:6379,db-n3.example.com:6379}'
 ```
 
-**StatefulSet** (in-cluster, e.g. next to Bitnami Redis+Sentinel): 3 pods; replica *i* talks to `redis-node-i`. See [lab/kind](../lab/kind/README.md).
+**StatefulSet** next to Bitnami Redis+Sentinel (ordinal → `redis-node-N`):
+[lab/kind](../lab/kind/README.md).
 
-```bash
-make kind-up    # Kind + Bitnami Redis 25.5.3 + local image (not published)
-make kind-e2e
-make kind-chaos
-make kind-stress
-```
+**In-pod sidecar** on the Bitnami Redis chart (localhost:26379):
+[deploy/examples/bitnami-redis-sidecar.yaml](../deploy/examples/bitnami-redis-sidecar.yaml).
+Do not also install our chart in that namespace.
+
+Kind lab still uses a **local** image (`make kind-up`), not Docker Hub.
 
 `apply` stays false until you flip it in values. TLS and ACL:
 [configuration.md](configuration.md).
@@ -112,6 +147,13 @@ attaches versioned artifacts, stable `/latest/download/` names, and
 `sha256sums.txt`.
 
 ```bash
-git tag v0.1.2
-git push origin v0.1.2
+git tag v0.1.4
+git push origin v0.1.4
 ```
+
+The workflow attaches `.deb` / `.tar.gz`, pushes Docker Hub
+`vpnmesh/redis-sentinel-reconciler:<version>` and `:latest` (needs secrets
+`DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`, see [docker-hub.md](docker-hub.md)),
+and `helm push` to `oci://ghcr.io/vpnmesh/charts` with `Chart.yaml`
+`version` / `appVersion` stamped from that tag. After the first chart
+package exists, set it **Public** in GitHub → Packages.

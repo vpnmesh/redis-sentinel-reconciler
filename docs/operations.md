@@ -3,6 +3,10 @@
 `--apply` on every sidecar is the intended steady mode. That is **not**
 “forget the cluster”. Keep scrape, write-probes, and the kill switch.
 
+**Best practice:** treat `ROLE`+`SET` as ground truth and
+`get-master-addr-by-name` as a pointer that can lie. This sidecar heals
+the pointer. It does not demote dual masters.
+
 ## Apply everywhere — do not forget
 
 | Keep | When to freeze (`APPLY=false` everywhere) |

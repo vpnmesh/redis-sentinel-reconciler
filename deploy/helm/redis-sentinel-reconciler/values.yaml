@@ -1,6 +1,8 @@
+# https://hub.docker.com/r/vpnmesh/redis-sentinel-reconciler
 image:
-  repository: redis-sentinel-reconciler
-  tag: "0.1.2"
+  repository: vpnmesh/redis-sentinel-reconciler
+  # Empty: Chart.appVersion (stamped from the v* tag). Git tree 0.0.0 → latest.
+  tag: ""
   pullPolicy: IfNotPresent
 
 # DaemonSet: one pod per node (bare-metal, hostNetwork).
@@ -23,11 +25,30 @@ redisAddrs: []
 sentinelAddr: ""
 
 # StatefulSet: this replica talks to prefix + ordinal + suffix
-# (rsr-0 → redis-node-0.redis-headless:26379).
+# (rsr-0 → redis-node-0.redis-headless:26379). The binary derives
+# SENTINEL_ADDR from POD_NAME; the image is scratch (no /bin/sh).
 sentinelFromOrdinal:
   enabled: false
   prefix: redis-node-
   suffix: .redis-headless:26379
+
+# Matches Dockerfile USER 65534 (nobody).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  capabilities:
+    drop: ["ALL"]
 
 healCooldown: 15m
 healLease: true
