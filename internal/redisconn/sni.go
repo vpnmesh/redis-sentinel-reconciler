@@ -9,8 +9,8 @@ import (
 // share a mutable ServerName on the template.
 //
 // SNI:
-//   - hostname in addr → that hostname (operator --tls-server-name is ignored)
-//   - IP in addr → ipFallbackSNI (operator --tls-server-name), or empty
+//   - hostname in addr: that hostname (operator --tls-server-name is ignored)
+//   - IP in addr: ipFallbackSNI (operator --tls-server-name), or empty
 //
 // Prefer dialing the DNS name on the certificate. ipFallbackSNI is for
 // dialing 127.0.0.1 with a hostname cert (no IP SAN).

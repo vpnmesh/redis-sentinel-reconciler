@@ -1,13 +1,14 @@
 # https://hub.docker.com/r/vpnmesh/redis-sentinel-reconciler
 image:
   repository: vpnmesh/redis-sentinel-reconciler
-  # Empty: Chart.appVersion (stamped from the v* tag). Git tree 0.0.0 → latest.
+  # Empty: Chart.appVersion (stamped from the v* tag). Git tree 0.0.0 uses latest.
   tag: ""
   pullPolicy: IfNotPresent
 
-# DaemonSet: one pod per node (bare-metal, hostNetwork).
-# StatefulSet: N in-cluster pods (Kind / Bitnami Redis+Sentinel next door).
-workload: DaemonSet
+# One reconciler pod per Sentinel. Default is StatefulSet (Bitnami
+# Redis+Sentinel in-cluster, same namespace, default names redis-node-N).
+# DaemonSet: Sentinel on the host (bare-metal, hostNetwork).
+workload: StatefulSet
 replicaCount: 3
 nameOverride: ""
 
@@ -25,10 +26,10 @@ redisAddrs: []
 sentinelAddr: ""
 
 # StatefulSet: this replica talks to prefix + ordinal + suffix
-# (rsr-0 → redis-node-0.redis-headless:26379). The binary derives
-# SENTINEL_ADDR from POD_NAME; the image is scratch (no /bin/sh).
+# (pod redis-sentinel-reconciler-0 dials redis-node-0.redis-headless:26379).
+# Bitnami Redis chart default pod names, no fullnameOverride.
 sentinelFromOrdinal:
-  enabled: false
+  enabled: true
   prefix: redis-node-
   suffix: .redis-headless:26379
 

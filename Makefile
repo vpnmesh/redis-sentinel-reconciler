@@ -107,7 +107,13 @@ vagrant-pkg:
 	CLUSTER_N=$(CLUSTER_N) ENGINE=$(ENGINE) ./lab/vagrant/e2e/P01_deb_install.sh
 
 kind-image:
-	docker build -t redis-sentinel-reconciler:local .
+	v=$$(git describe --tags --exact-match 2>/dev/null || true); \
+	[ -n "$$v" ] || v=dev; \
+	docker build \
+		--build-arg VERSION="$${v#v}" \
+		--build-arg REVISION="$$(git rev-parse HEAD 2>/dev/null || echo unknown)" \
+		--build-arg VCS_TAG="$$(git describe --tags --exact-match 2>/dev/null || true)" \
+		-t redis-sentinel-reconciler:local .
 
 kind-up:
 	./lab/kind/run.sh

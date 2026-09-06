@@ -7,15 +7,15 @@
 `get-master-addr-by-name` as a pointer that can lie. This sidecar heals
 the pointer. It does not demote dual masters.
 
-## Apply everywhere — do not forget
+## Apply everywhere
 
 | Keep | When to freeze (`APPLY=false` everywhere) |
 |------|-------------------------------------------|
 | scrape `/metrics` (~15s) | `heal_fail` spike |
 | client `SET` probe via Sentinel | unexpected demote |
 | kill switch | any dual-writable you do not understand |
-| dual → Sentinel or you `REPLICAOF` | epoch churn you cannot explain |
-| `conf_fallback_needed` → you edit `sentinel.conf` | |
+| dual: Sentinel or you `REPLICAOF` | epoch churn you cannot explain |
+| `conf_fallback_needed`: you edit `sentinel.conf` | |
 
 Canary: one host `APPLY=true`, cooldown 15m, lease on. Then the rest, one
 at a time, still `--local-sentinel`. Lab green is not a soak. Shipped
@@ -37,8 +37,8 @@ Counters (`*_total`, registered at 0, HELP/TYPE on the wire) count **ticks**.
 not multiplied by scrape. Use `rate`/`increase`. Last-tick gauges:
 `diverged` 0|1, `would_heal` 0|1, `writable_masters`.
 
-Rename from v0.1.0: `diverge` → `diverge_total`, `would_heal` (counter) →
-`would_heal_total` (the gauge kept the old name `would_heal`). Same for
+Rename from v0.1.0: `diverge` became `diverge_total`, `would_heal` (counter)
+became `would_heal_total` (the gauge kept the old name `would_heal`). Same for
 `heal_*`, `alert_*`, `apply_refused`, `ticks`, `noop`.
 
 Const labels: `master_name`, `apply`. No advertised-master / epoch / tick id.
@@ -78,12 +78,12 @@ or any dual-writable window you do not understand.
 
 ## Diverge
 
-Sentinel ads ≠ writable Redis. Log line `DIVERGE`, counter `diverge_total`,
+Sentinel ads do not match the writable Redis. Log line `DIVERGE`, counter `diverge_total`,
 gauge `diverged=1`.
 
 1. Count writable nodes (`ROLE` + `SET` on `REDIS_ADDRS`).
-2. Two or more writables → dual-master, do **not** `--apply`.
-3. `equal_epoch_trap` → equal-epoch section below.
+2. Two or more writables means dual-master; do **not** `--apply`.
+3. `equal_epoch_trap`: equal-epoch section below.
 4. Still one writable and ads are wrong: dry-run should log `would_heal`.
    With `--apply` the local sidecar heals toward that writable Redis, then
    write-probes it.
@@ -113,7 +113,7 @@ oracle. FAILOVER unsafe is **not** the same as MONITOR unsafe.
 When there is exactly one writable Redis and the local ad is a live
 replica (stale `s_down,master`), APPLY with default
 `--equal-epoch-escalate=true` does `REMOVE`+`MONITOR` onto that node
-and re-binds Sentinel→Redis auth. That does not need a new config-epoch.
+and re-binds Sentinel auth to Redis. That does not need a new config-epoch.
 The other sidecars noop. Leave escalate on for this.
 
 Escalate + refuse MONITOR still applies when FAILOVER was skipped for

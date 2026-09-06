@@ -8,7 +8,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: redis-sentinel-reconciler
+      {{- include "rsr.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:

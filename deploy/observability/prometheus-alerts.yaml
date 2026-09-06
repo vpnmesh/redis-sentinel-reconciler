@@ -1,11 +1,11 @@
-# Prometheus / VictoriaMetrics alerts — redis-sentinel-reconciler
+# Prometheus / VictoriaMetrics alerts for redis-sentinel-reconciler
 
 Scrapes `redis_sentinel_reconciler_*` from `--metrics-addr` (example
 `127.0.0.1:9123/metrics`). Scrape 15s, reconcile interval 30s.
 
 Rename (v0.1.1): counters are `*_total`. Last-tick state is a gauge.
 Use `rate`/`increase` on counters and the gauge for “is it bad right now”.
-Do not treat `diverge_total` as a 0/1 — it increments every diverged tick.
+Do not treat `diverge_total` as a 0/1. It increments every diverged tick.
 
 Runbooks: docs/operations.md
 
@@ -34,7 +34,7 @@ groups:
         for: 0m
         labels: { severity: critical }
         annotations:
-          summary: "Dual writable Redis — reconciler will not heal"
+          summary: "Dual writable Redis; reconciler will not heal"
           runbook: "docs/operations.md"
 
       - alert: RedisSentinelReconcilerEqualEpochTrap
@@ -50,7 +50,7 @@ groups:
         for: 0m
         labels: { severity: critical }
         annotations:
-          summary: "Equal-epoch trap and FAILOVER unsafe — do not MONITOR-thrash"
+          summary: "Equal-epoch trap and FAILOVER unsafe; do not MONITOR-thrash"
           runbook: "docs/operations.md"
 
       - alert: RedisSentinelReconcilerHealFailed
@@ -66,5 +66,5 @@ groups:
         for: 5m
         labels: { severity: warning }
         annotations:
-          summary: "Many apply_refused — check lease, cooldown, partition guards"
+          summary: "Many apply_refused; check lease, cooldown, partition guards"
 ```

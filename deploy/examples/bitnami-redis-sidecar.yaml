@@ -1,6 +1,6 @@
 # Optional: Bitnami Redis+Sentinel in-pod sidecar (production-shaped).
 #
-# Same network namespace as Sentinel → --sentinel-addr=127.0.0.1:26379
+# Same network namespace as Sentinel: --sentinel-addr=127.0.0.1:26379
 # List every Redis pod that can become master (port 6379).
 #
 #   helm upgrade --install redis oci://registry-1.docker.io/bitnamicharts/redis \
@@ -9,14 +9,14 @@
 #     -f deploy/examples/bitnami-redis-sidecar.yaml
 #
 # Do *not* also install deploy/helm/redis-sentinel-reconciler in this
-# namespace — that would be two healers per Sentinel.
+# namespace: that would be two healers per Sentinel.
 #
 # Leave apply off until /metrics looks quiet, then add --apply to args.
 
 replica:
   sidecars:
     - name: redis-sentinel-reconciler
-# Pin a release tag in production (same as the GitHub Release, without v).
+      # Pin a release tag in production (same as the GitHub Release, without v).
       image: vpnmesh/redis-sentinel-reconciler:latest
       imagePullPolicy: IfNotPresent
       securityContext:

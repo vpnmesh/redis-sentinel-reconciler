@@ -72,14 +72,14 @@ placeholder host.
 
 The process reads `KEY=VALUE` itself (optional `export `, `#` comments).
 `$`, `#`, spaces, and quotes in passwords stay literal. If the file is
-missing or unreadable, exit 2. (A systemd `EnvironmentFile=-…` used to
+missing or unreadable, exit 2. (A systemd `EnvironmentFile=-...` used to
 swallow that and start with an empty `SENTINEL_ADDR`.)
 
 `--config` / `-config` / `CONFIG=` / `RSR_CONFIG=` are the same path
 (the flag wins).
 
 If you still want systemd `EnvironmentFile=` (no leading `-`), systemd
-will expand `$` (`$` → `$$`) and treat unquoted `#` as a comment.
+will expand `$` (`$` becomes `$$`) and treat unquoted `#` as a comment.
 Prefer `--config`.
 
 ## Auth
@@ -99,28 +99,28 @@ Two credential planes:
 
 | Who | Knobs | Needs |
 |-----|--------|--------|
-| This process → Redis (`ROLE`, `SET rsr:probe`, heal lease) | `--redis-username` / `--redis-password` | Often `ROLE` (`@dangerous`) + `SET` on `rsr:*` |
-| Sentinel → Redis (replication after MONITOR) | `--sentinel-redis-username` / `--sentinel-redis-password` | Whatever `sentinel monitor` uses (typical `sentinel` ACL user: `+replicaof` `+role`, not `SET`) |
+| This process to Redis (`ROLE`, `SET rsr:probe`, heal lease) | `--redis-username` / `--redis-password` | Often `ROLE` (`@dangerous`) + `SET` on `rsr:*` |
+| Sentinel to Redis (replication after MONITOR) | `--sentinel-redis-username` / `--sentinel-redis-password` | Whatever `sentinel monitor` uses (typical `sentinel` ACL user: `+replicaof` `+role`, not `SET`) |
 
 If `--sentinel-redis-*` are unset, MONITOR re-bind uses the probe Redis
 user/password. That is the wrong user when the probe account is
 `default` / `+@all` and Sentinel should use a tighter replication user.
 
 After `REMOVE`+`MONITOR`, the process always re-binds `SENTINEL SET
-auth-user` / `auth-pass` from the Sentinel→Redis pair (or the probe
+auth-user` / `auth-pass` from the Sentinel-to-Redis pair (or the probe
 fallback). ACL clusters break if only the password is restored.
 
 Use a **dedicated sidecar user**, not the application user.
 
 Redis (observe + write-probe) typically needs:
 
-- `ROLE` (often in `@dangerous` on Redis 6/7 — grant it explicitly)
+- `ROLE` (often in `@dangerous` on Redis 6/7; grant it explicitly)
 - `SET` / `GET` / `DEL` / `EXPIRE` on `rsr:*` (probe key `rsr:probe`, heal lease `rsr:heal-lease:*`)
 - `INFO` (server/replication bits used in probes)
 
 Sentinel needs enough `SENTINEL` subcommands for get-master-addr, master,
 replicas, sentinels, and (only if you `--apply`) failover / remove /
-monitor / reset / set. Exact ACL syntax varies by version — test it.
+monitor / reset / set. Exact ACL syntax varies by version. Test it.
 
 `requirepass` / `sentinel auth-pass` on the servers still work if you are
 not on ACL yet.
@@ -143,7 +143,7 @@ Sentinel.
 |------|
 | `--tls` / `TLS` |
 | `--tls-ca-file` / `TLS_CA_FILE` |
-| `--tls-server-name` / `TLS_SERVER_NAME` — IP-only SNI fallback |
+| `--tls-server-name` / `TLS_SERVER_NAME` (IP-only SNI fallback) |
 | `--tls-skip-verify` / `TLS_SKIP_VERIFY` |
 | `--tls-cert` / `--tls-key` (`TLS_CERT` / `TLS_KEY`, also `TLS_CERT_FILE` / `TLS_KEY_FILE`) |
 
@@ -178,7 +178,7 @@ real cluster:
 | `--heal-cooldown` | `15m` | Do not heal in a loop. |
 | `--heal-lease` | `true` | One apply at a time (`rsr:heal-lease:<name>` on the writable Redis). |
 | `--equal-epoch-escalate` | `true` | Under equal-epoch, refuse MONITOR unless FAILOVER was skipped because the advertised node is a **live replica**. In that case MONITOR points Sentinel at the unique writable Redis. |
-| `--min-reachable-redis` | `0` (auto: 2 if you listed ≥3 seeds) | Refuse apply from a tiny island. |
+| `--min-reachable-redis` | `0` (auto: 2 if you listed 3 or more seeds) | Refuse apply from a tiny island. |
 | `--skip-on-failover-in-progress` | `true` | Do not fight a stock election. |
 | `--interval-jitter` | `0.2` | |
 | `--quorum` | `2` | Used only for `SENTINEL MONITOR` fallback. |

@@ -25,7 +25,7 @@ METRICS_ADDR=127.0.0.1:9123
 # REDIS_PASSWORD="p$a#ss word"
 # SENTINEL_USERNAME=rsr
 # SENTINEL_PASSWORD=
-# If Sentinel→Redis ACL is not the probe user:
+# If Sentinel-to-Redis ACL is not the probe user:
 # SENTINEL_REDIS_USERNAME=sentinel
 # SENTINEL_REDIS_PASSWORD=
 

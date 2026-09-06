@@ -46,7 +46,7 @@ type Config struct {
 	RedisUsername    string
 	SentinelUsername string
 	// SentinelRedisUsername / SentinelRedisPassword are SENTINEL SET auth-user /
-	// auth-pass after MONITOR (Sentinel→Redis). Empty = probe Redis user/password.
+	// auth-pass after MONITOR (Sentinel to Redis). Empty = probe Redis user/password.
 	SentinelRedisUsername string
 	SentinelRedisPassword string
 	TLS                   *tls.Config
@@ -563,7 +563,7 @@ func failoverPromoteSafe(advertised, masterKey, flags string, nodes []oracle.Nod
 	if advDown || !advReachableMaster {
 		// Unique writable is still in REDIS_ADDRS. SENTINEL FAILOVER elects a
 		// replica from Sentinel's view of the (dead/fake) advertised master.
-		// That replica is not the oracle → dual. Heal ads with MONITOR.
+		// That replica is not the oracle: dual. Heal ads with MONITOR.
 		return false, reasonAdvertisedUnreachable
 	}
 	return false, "failover_may_promote_non_oracle"

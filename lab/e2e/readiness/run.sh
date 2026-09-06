@@ -670,7 +670,7 @@ if command -v syft >/dev/null 2>&1; then
 fi
 save_ev R20_release "$(printf 'redis=%s\nimage=%s\ngo=%s\nsyft_bytes=%s\n## install.md\n%s\n' \
   "$redis_ver" "$img" "$go_ver" "${#syft_out}" \
-  "$(grep -nE 'amd64|sha256|deb' "$ROOT_DIR/docs/install.md" | head -8)")"
+  "$(grep -nE 'amd64|sha256|deb' "$ROOT_DIR/docs/install-systemd.md" | head -8)")"
 if echo "$redis_ver" | grep -qi redis && [[ -n "$go_ver" ]]; then
   if [[ -n "$syft_out" ]]; then
     ok "R20 live Redis/go version matrix + syft SBOM sample"

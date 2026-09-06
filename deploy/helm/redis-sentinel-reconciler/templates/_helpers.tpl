@@ -14,10 +14,14 @@ redis-sentinel-reconciler
 {{- end -}}
 {{- end -}}
 
-{{- define "rsr.labels" -}}
+{{- define "rsr.selectorLabels" -}}
 app: redis-sentinel-reconciler
-app.kubernetes.io/name: redis-sentinel-reconciler
 app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{- define "rsr.labels" -}}
+{{ include "rsr.selectorLabels" . }}
+app.kubernetes.io/name: redis-sentinel-reconciler
 {{- end -}}
 
 {{- define "rsr.commonArgs" -}}

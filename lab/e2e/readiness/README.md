@@ -8,5 +8,5 @@ make e2e-readiness
 ```
 
 Some rows only check that the matching section still exists in
-`docs/configuration.md` / `docs/operations.md` / `docs/install.md`.
+`docs/configuration.md` / `docs/operations.md` / `docs/install-systemd.md`.
 R19 is an honest skip: one `--master-name` per process.

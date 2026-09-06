@@ -32,7 +32,18 @@ fi
 kubectl cluster-info --context "kind-${CLUSTER}" >/dev/null
 
 log "build $IMAGE"
-docker build -t "$IMAGE" "$ROOT"
+tag="$(git -C "$ROOT" describe --tags --exact-match 2>/dev/null || true)"
+if [ -n "$tag" ]; then
+  ver="${tag#v}"
+else
+  ver=dev
+fi
+rev="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+docker build \
+  --build-arg VERSION="$ver" \
+  --build-arg REVISION="$rev" \
+  --build-arg VCS_TAG="$tag" \
+  -t "$IMAGE" "$ROOT"
 kind load docker-image "$IMAGE" --name "$CLUSTER"
 
 log "pull/load Redis images (bitnamilegacy, not published BSI)"

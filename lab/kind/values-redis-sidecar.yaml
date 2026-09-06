@@ -1,13 +1,13 @@
 # Optional: inject the reconciler into each Bitnami Redis+Sentinel pod
 # (replica.sidecars). Same network namespace as Sentinel (127.0.0.1:26379).
-# Kind's default path is the separate 3-pod STS chart instead — this file is
+# Kind's default path is the separate 3-pod STS chart instead. This file is
 # for operators who prefer a true in-pod sidecar.
 #
 # Merge with values-redis.yaml:
 #   helm install redis oci://registry-1.docker.io/bitnamicharts/redis --version 25.5.3 \
 #     -f lab/kind/values-redis.yaml -f lab/kind/values-redis-sidecar.yaml
 #
-# Then do *not* install our chart — you would run two reconcilers per Sentinel.
+# Then do *not* install our chart: you would run two reconcilers per Sentinel.
 
 replica:
   sidecars:

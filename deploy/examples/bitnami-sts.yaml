@@ -1,0 +1,30 @@
+# Bitnami Redis+Sentinel in the same namespace, default pod names
+# (no fullnameOverride). One reconciler pod per Sentinel.
+#
+#   helm install redis oci://registry-1.docker.io/bitnamicharts/redis \
+#     --namespace rsr --create-namespace --version 25.5.3 \
+#     --set architecture=replication --set sentinel.enabled=true \
+#     --set replica.replicaCount=3
+#
+#   helm install rsr oci://ghcr.io/vpnmesh/charts/redis-sentinel-reconciler \
+#     --namespace rsr -f deploy/examples/bitnami-sts.yaml
+#
+# Secret name follows the Redis release (here: redis).
+# NOAUTH on 26379/6379 means this secret was not passed.
+
+workload: StatefulSet
+replicaCount: 3
+
+sentinelFromOrdinal:
+  enabled: true
+  prefix: redis-node-
+  suffix: .redis-headless:26379
+
+redisAddrs:
+  - redis-node-0.redis-headless:6379
+  - redis-node-1.redis-headless:6379
+  - redis-node-2.redis-headless:6379
+
+auth:
+  existingSecret: redis
+  existingSecretKey: redis-password

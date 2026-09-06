@@ -1,4 +1,4 @@
-# Kind — Bitnami Redis + our chart
+# Kind: Bitnami Redis + our chart
 
 Local Kubernetes install smoke. **Does not publish an image.**
 
@@ -9,7 +9,7 @@ Local Kubernetes install smoke. **Does not publish an image.**
 | Our chart | 3-pod StatefulSet; `rsr-0` talks to `redis-node-0.redis-headless:26379` |
 | Image | `redis-sentinel-reconciler:local` via `docker build` + `kind load` |
 
-Redis images are `bitnamilegacy/redis:8.2.1` / `bitnamilegacy/redis-sentinel:8.2.1` so Kind does not need a Bitnami Secure Images login. Chart 25 *can* inject a sidecar with `replica.sidecars` (localhost:26379). Kind still installs **our chart** so that path is tested. Optional in-pod sidecar: [`values-redis-sidecar.yaml`](values-redis-sidecar.yaml) — do not also install the STS chart if you use it.
+Redis images are `bitnamilegacy/redis:8.2.1` / `bitnamilegacy/redis-sentinel:8.2.1` so Kind does not need a Bitnami Secure Images login. Chart 25 *can* inject a sidecar with `replica.sidecars` (localhost:26379). Kind still installs **our chart** so that path is tested. Optional in-pod sidecar: [`values-redis-sidecar.yaml`](values-redis-sidecar.yaml). Do not also install the STS chart if you use it.
 
 ```bash
 # from redis-sentinel-reconciler/
@@ -36,7 +36,7 @@ Chaos/stress hit the reconciler, not generic Redis HA:
 
 | Target | Cases |
 |--------|--------|
-| `kind-chaos` | C1 delete one rsr pod (oracle holds); C3 ads name a live replica; C2 delete rsr pods mid-heal; C4 `REPLICAOF NO ONE` → `dual_master` refuse, no `REPLICAOF` from us |
+| `kind-chaos` | C1 delete one rsr pod (oracle holds); C3 ads name a live replica; C2 delete rsr pods mid-heal; C4 `REPLICAOF NO ONE` is `dual_master` refuse, no `REPLICAOF` from us |
 | `kind-stress` | S2 three apply pods contend `--heal-lease`; S1 fake MONITOR × `STRESS_ROUNDS` (default 6); S3 dual refuse for several ticks |
 
 Password is lab-only: `lab-rsr-kind` in [`values-redis.yaml`](values-redis.yaml).

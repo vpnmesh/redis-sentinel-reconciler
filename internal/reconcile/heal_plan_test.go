@@ -33,7 +33,7 @@ func TestPlanApplyHeal_ProductionStaleReplica_MonitorsUnderDefaultEscalate(t *te
 }
 
 func TestPlanApplyHeal_v011WouldRefuseThisSplit(t *testing.T) {
-	// Reproduce the v0.1.1 gate: equal-epoch + any unsafe FAILOVER → refuse MONITOR.
+	// Reproduce the v0.1.1 gate: equal-epoch + any unsafe FAILOVER refuses MONITOR.
 	safe, why := false, reasonLiveNonOracle
 	v011Refuse := true && !safe // equalEpochEscalate && !failoverSafe
 	if !v011Refuse {
@@ -180,7 +180,7 @@ func TestHealAPI_ProductionStaleReplica_MonitorNotFailover(t *testing.T) {
 		t.Fatalf("ads after heal %s:%d", host, port)
 	}
 
-	// Second tick: ads already match oracle — tick would noop; calling healAPI
+	// Second tick: ads already match oracle; tick would noop; calling healAPI
 	// is the bug we must not do. sameRedisEndpoint is the gate.
 	if !sameRedisEndpoint("10.0.0.2:6379", oracleAddr) {
 		t.Fatal("second tick must noop")
