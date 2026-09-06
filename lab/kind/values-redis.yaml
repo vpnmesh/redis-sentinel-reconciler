@@ -1,0 +1,60 @@
+# Bitnami Redis from the public Helm index (charts.bitnami.com).
+# Chart: oci://registry-1.docker.io/bitnamicharts/redis:25.5.3
+# (HTTPS index current is 25.x; 17.x is gone from that index.)
+#
+# Default chart images are Bitnami Secure Images (registry-1.docker.io/bitnami,
+# often subscription). Kind pulls bitnamilegacy so the lab stays anonymous.
+
+global:
+  defaultFips: off
+  security:
+    allowInsecureImages: true
+
+architecture: replication
+
+auth:
+  enabled: true
+  sentinel: true
+  password: "lab-rsr-kind"
+
+image:
+  registry: docker.io
+  repository: bitnamilegacy/redis
+  tag: 8.2.1-debian-12-r0
+  pullPolicy: IfNotPresent
+
+sentinel:
+  enabled: true
+  masterSet: mymaster
+  quorum: 2
+  # Keep a fake MONITOR sticky during kind-e2e (stock odown would otherwise
+  # elect a real replica before the reconciler tick is observed).
+  downAfterMilliseconds: 300000
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/redis-sentinel
+    tag: 8.2.1-debian-12-r0
+    pullPolicy: IfNotPresent
+
+master:
+  persistence:
+    enabled: false
+  resourcesPreset: nano
+
+replica:
+  replicaCount: 3
+  persistence:
+    enabled: false
+  resourcesPreset: nano
+
+metrics:
+  enabled: false
+
+volumePermissions:
+  enabled: false
+
+sysctl:
+  enabled: false
+
+networkPolicy:
+  enabled: false

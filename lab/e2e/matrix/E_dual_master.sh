@@ -15,6 +15,7 @@ for s in "${REDIS_SVCS[@]}"; do
 done
 [[ -n "$slave" ]] || { bad "SPEC-E" "no slave"; return 0; }
 
+pause_reconcilers
 pause_sentinels "${SENTINEL_SVCS[@]}"
 compose exec -T "$slave" redis-cli REPLICAOF NO ONE >/dev/null
 

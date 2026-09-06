@@ -39,6 +39,7 @@ echo "$HELP" | grep -- '-sentinel-redis-username' >/dev/null
 install -m 0644 README.md "$OUT/stage/${TARBALL_STEM}/README.md"
 install -m 0644 LICENSE "$OUT/stage/${TARBALL_STEM}/LICENSE"
 install -m 0644 NOTICE "$OUT/stage/${TARBALL_STEM}/NOTICE"
+install -m 0755 scripts/install-systemd.sh "$OUT/stage/${TARBALL_STEM}/install-systemd.sh"
 
 install -d "$OUT/stage/${TARBALL_STEM}/systemd"
 install -m 0644 deploy/systemd/redis-sentinel-reconciler.service \
@@ -91,15 +92,25 @@ else
   dpkg-deb --root-owner-group --build "$DEB_ROOT" "$OUT/${DEB_FILE}"
 fi
 
+rm -rf "$OUT/stage" "$OUT/debian"
+
+# Stable names for GitHub Releases /latest/download/ (version stays inside the package).
+cp -f "$OUT/${TARBALL_STEM}.tar.gz" "$OUT/${NAME}_linux_amd64.tar.gz"
+if [[ -f "$OUT/${DEB_FILE}" ]]; then
+  cp -f "$OUT/${DEB_FILE}" "$OUT/${NAME}_linux_amd64.deb"
+fi
+
 ( cd "$OUT" && {
   if [[ -f "$DEB_FILE" ]]; then
-    sha256sum "${TARBALL_STEM}.tar.gz" "$DEB_FILE"
+    sha256sum "${TARBALL_STEM}.tar.gz" "$DEB_FILE" \
+      "${NAME}_linux_amd64.tar.gz" "${NAME}_linux_amd64.deb"
   else
-    sha256sum "${TARBALL_STEM}.tar.gz"
+    sha256sum "${TARBALL_STEM}.tar.gz" "${NAME}_linux_amd64.tar.gz"
   fi
 } >sha256sums.txt )
 
-rm -rf "$OUT/stage" "$OUT/debian"
 echo "wrote $OUT/${TARBALL_STEM}.tar.gz"
+echo "wrote $OUT/${NAME}_linux_amd64.tar.gz"
 [[ -f "$OUT/${DEB_FILE}" ]] && echo "wrote $OUT/${DEB_FILE}"
+[[ -f "$OUT/${NAME}_linux_amd64.deb" ]] && echo "wrote $OUT/${NAME}_linux_amd64.deb"
 echo "wrote $OUT/sha256sums.txt"

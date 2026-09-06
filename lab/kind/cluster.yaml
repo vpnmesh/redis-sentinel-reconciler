@@ -1,0 +1,6 @@
+# Kind lab: Bitnami Redis (3 pods, Sentinel in-pod) + our chart (3 STS).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: rsr
+nodes:
+  - role: control-plane

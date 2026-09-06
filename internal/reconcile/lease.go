@@ -9,7 +9,7 @@ import (
 	"github.com/vpnmesh/redis-sentinel-reconciler/internal/redisconn"
 )
 
-// acquireHealLease tries SET NX EX on the writable oracle (R10).
+// acquireHealLease tries SET NX EX on the writable Redis.
 // Returns true if this process holds the lease (or leasing disabled).
 func acquireHealLease(ctx context.Context, oracleAddr, masterName, holder string, ttl time.Duration, dial redisconn.Dial) (bool, error) {
 	if ttl <= 0 {

@@ -1,0 +1,18 @@
+{{- if eq .Values.workload "StatefulSet" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rsr.fullname" . }}
+  labels:
+    {{- include "rsr.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    app: redis-sentinel-reconciler
+  ports:
+    {{- if .Values.metrics.enabled }}
+    - name: metrics
+      port: {{ .Values.metrics.port }}
+      targetPort: metrics
+    {{- end }}
+{{- end }}

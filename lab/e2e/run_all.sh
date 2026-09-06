@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full lab e2e: smoke (T01-T07) + SPEC §5 matrix A-G on 5 Redis + 5 Sentinel.
+# Full lab e2e: smoke (T01-T09) + SPEC §5 matrix A-G on 5 Redis + 5 Sentinel.
 set -euo pipefail
 E2E_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib.sh
@@ -39,6 +39,10 @@ run_smoke() {
   run_case "$E2E_DIR/06_diverge_dryrun.sh"
   restore_steady_state || true
   run_case "$E2E_DIR/07_api_heal_node1.sh"
+  restore_steady_state || true
+  run_case "$E2E_DIR/08_kill_two_nodes.sh"
+  restore_steady_state || true
+  run_case "$E2E_DIR/09_failover_sentinel_down.sh"
   restore_steady_state || true
 }
 

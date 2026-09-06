@@ -15,7 +15,7 @@ func (r *Reconciler) refuseApply(reason string, attrs ...any) {
 	r.metrics.Inc("apply_refused")
 }
 
-// preflightApply returns false if heal must not run (HAZARD countermeasures).
+// preflightApply returns false when apply would be unsafe.
 func (r *Reconciler) preflightApply(flags string, nodes []oracle.NodeResult) bool {
 	if r.cfg.Apply && r.cfg.RequireLocalForApply && !r.cfg.LocalSentinel && !r.cfg.AllowGlobalApply {
 		r.refuseApply("apply_requires_local_sentinel", "hint", "pass --local-sentinel or --allow-global-apply")

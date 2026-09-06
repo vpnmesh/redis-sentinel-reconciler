@@ -21,41 +21,102 @@ func TestWantsVersion(t *testing.T) {
 	}
 }
 
-func TestParseConfig_RequiresSentinel(t *testing.T) {
+func TestParseConfig_RequiresSentinelAndRedis(t *testing.T) {
 	_, err := parseConfig(nil, getenvMap(nil), io.Discard)
 	if err == nil {
-		t.Fatal("expected missing sentinel error")
+		t.Fatal("expected missing required settings")
+	}
+	msg := err.Error()
+	for _, want := range []string{
+		"missing required settings",
+		"SENTINEL_ADDR",
+		"REDIS_ADDRS",
+		"--sentinel-addr",
+		"--redis-addrs",
+		"this host",
+		"can become master",
+		"whole cluster",
+		"Example: SENTINEL_ADDR=",
+		"Example: REDIS_ADDRS=",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("missing %q in:\n%s", want, msg)
+		}
 	}
 }
 
 func TestParseConfig_RequiresRedisSeeds(t *testing.T) {
 	_, err := parseConfig([]string{"--sentinel-addr=127.0.0.1:26379"}, getenvMap(nil), io.Discard)
-	if err == nil || !strings.Contains(err.Error(), "redis-addrs") {
-		t.Fatalf("expected redis-addrs required, got %v", err)
+	if err == nil {
+		t.Fatal("expected redis-addrs required")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "REDIS_ADDRS") || !strings.Contains(msg, "can become master") {
+		t.Fatalf("expected redis required help, got %v", err)
+	}
+	if strings.Contains(msg, "SENTINEL_ADDR  (--sentinel-addr") {
+		t.Fatalf("sentinel was set; should not ask for SENTINEL_ADDR:\n%s", msg)
+	}
+}
+
+func TestParseConfig_RequiresSentinelOnly(t *testing.T) {
+	_, err := parseConfig([]string{"--redis-addrs=10.0.0.1:6379,10.0.0.2:6379"}, getenvMap(nil), io.Discard)
+	if err == nil {
+		t.Fatal("expected sentinel required")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "SENTINEL_ADDR") || !strings.Contains(msg, "this host") {
+		t.Fatalf("expected sentinel required help, got %v", err)
+	}
+	if strings.Contains(msg, "REDIS_ADDRS  (--redis-addrs") {
+		t.Fatalf("redis was set; should not ask for REDIS_ADDRS:\n%s", msg)
+	}
+}
+
+func TestParseConfig_MissingRequiredMentionsConfigPath(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rsr.env")
+	if err := os.WriteFile(path, []byte("APPLY=false\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := parseConfig([]string{"--config", path}, getenvMap(nil), io.Discard)
+	if err == nil || !strings.Contains(err.Error(), path) {
+		t.Fatalf("expected config path in error, got %v", err)
 	}
 }
 
 func TestParseConfig_EnvSentinelAndApplyGuard(t *testing.T) {
-	_, err := parseConfig(nil, getenvMap(map[string]string{
+	cfg, err := parseConfig(nil, getenvMap(map[string]string{
 		"RSR_SENTINEL_ADDR": "127.0.0.1:26379",
 		"RSR_REDIS_ADDRS":   "10.0.0.1:6379",
 		"RSR_APPLY":         "true",
 	}), io.Discard)
-	if err == nil || err.Error() == "" {
+	if err != nil {
+		t.Fatalf("sidecar default --local-sentinel=true should allow APPLY: %v", err)
+	}
+	if !cfg.Apply || !cfg.LocalSentinel {
+		t.Fatalf("expected apply+local, got apply=%v local=%v", cfg.Apply, cfg.LocalSentinel)
+	}
+
+	_, err = parseConfig([]string{"--local-sentinel=false"}, getenvMap(map[string]string{
+		"SENTINEL_ADDR": "127.0.0.1:26379",
+		"REDIS_ADDRS":   "10.0.0.1:6379",
+		"APPLY":         "true",
+	}), io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "local-sentinel") {
 		t.Fatalf("expected apply-without-local error, got %v", err)
 	}
 
-	cfg, err := parseConfig(nil, getenvMap(map[string]string{
-		"SENTINEL_ADDR":      "127.0.0.1:26379",
-		"RSR_APPLY":          "true",
-		"RSR_LOCAL_SENTINEL": "true",
-		"REDIS_ADDRS":        "10.0.0.1:6379,10.0.0.2:6379",
-		"INTERVAL":           "30s",
+	cfg, err = parseConfig(nil, getenvMap(map[string]string{
+		"SENTINEL_ADDR": "127.0.0.1:26379",
+		"RSR_APPLY":     "true",
+		"REDIS_ADDRS":   "10.0.0.1:6379,10.0.0.2:6379",
+		"INTERVAL":      "45s",
 	}), io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.Apply || !cfg.LocalSentinel || cfg.Interval != 30*time.Second {
+	if !cfg.Apply || !cfg.LocalSentinel || cfg.Interval != 45*time.Second {
 		t.Fatalf("unexpected cfg: apply=%v local=%v interval=%s", cfg.Apply, cfg.LocalSentinel, cfg.Interval)
 	}
 	if len(cfg.RedisAddrs) != 2 {
@@ -157,10 +218,58 @@ func TestParseConfig_Help(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 	help := buf.String()
-	for _, want := range []string{"-tls", "-redis-username", "-sentinel-username", "-sentinel-redis-username", "-config"} {
+	for _, want := range []string{
+		"-tls", "-redis-username", "-sentinel-username", "-sentinel-redis-username", "-config",
+		"SENTINEL_ADDR", "REDIS_ADDRS", "same knobs",
+		"this host's Sentinel", "can become master",
+	} {
 		if !strings.Contains(help, want) {
 			t.Errorf("help missing %s\n%s", want, help)
 		}
+	}
+}
+
+func TestParseConfig_FlagEnvFileSameKnob(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rsr.env")
+	body := `
+sentinel-addr=from-file:26379
+REDIS_ADDRS=10.0.0.1:6379
+tls=true
+tls-skip-verify=true
+`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := parseConfig([]string{"--config", path}, getenvMap(nil), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SentinelAddrs[0] != "from-file:26379" || cfg.TLS == nil || !cfg.TLS.InsecureSkipVerify {
+		t.Fatalf("file hyphen keys: %#v tls=%v", cfg.SentinelAddrs, cfg.TLS)
+	}
+
+	cfg, err = parseConfig(nil, getenvMap(map[string]string{
+		"TLS":             "true",
+		"TLS_SKIP_VERIFY": "true",
+		"SENTINEL_ADDR":   "from-env:26379",
+		"REDIS_ADDRS":     "10.0.0.1:6379",
+	}), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SentinelAddrs[0] != "from-env:26379" || cfg.TLS == nil {
+		t.Fatalf("unprefixed env TLS: addrs=%v tls=%v", cfg.SentinelAddrs, cfg.TLS)
+	}
+}
+
+func TestParseConfig_DefaultIntervalAndLocal(t *testing.T) {
+	cfg, err := parseConfig([]string{"--sentinel-addr=a:26379", "--redis-addrs=a:6379"}, getenvMap(nil), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Interval != 30*time.Second || !cfg.LocalSentinel {
+		t.Fatalf("interval=%s local=%v", cfg.Interval, cfg.LocalSentinel)
 	}
 }
 

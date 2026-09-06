@@ -74,8 +74,15 @@ func TestPlanApplyHeal_EqualEpochStillEscalatesUnknownSkip(t *testing.T) {
 	}
 }
 
+func TestPlanApplyHeal_UnreachableAdsMonitorsNotFailover(t *testing.T) {
+	plan := planApplyHeal(1, false, reasonAdvertisedUnreachable, true, true)
+	if plan.Action != actionMonitor || plan.Reason != reasonAdvertisedUnreachable {
+		t.Fatalf("fake/down ads + unique writable must MONITOR, got %+v", plan)
+	}
+}
+
 func TestPlanApplyHeal_SafeFailoverUnchanged(t *testing.T) {
-	plan := planApplyHeal(1, true, "advertised_down_or_unreachable_failover_ok", true, true)
+	plan := planApplyHeal(1, true, "legacy_failover_ok", true, true)
 	if plan.Action != actionFailover {
 		t.Fatalf("%+v", plan)
 	}
@@ -177,6 +184,31 @@ func TestHealAPI_ProductionStaleReplica_MonitorNotFailover(t *testing.T) {
 	// is the bug we must not do. sameRedisEndpoint is the gate.
 	if !sameRedisEndpoint("10.0.0.2:6379", oracleAddr) {
 		t.Fatal("second tick must noop")
+	}
+}
+
+func TestHealAPI_FakeUnreachableAds_MonitorNotFailover(t *testing.T) {
+	nodes := []oracle.NodeResult{
+		{Addr: "10.0.0.2:6379", Role: "master", Writable: true, RunID: "m"},
+		{Addr: "10.0.0.3:6379", Role: "slave", Writable: false, RunID: "s"},
+	}
+	c := &fakeSentinel{addr: "s1:26379", adHost: "10.255.255.254", adPort: 6379}
+	r := New(Config{
+		Apply:              true,
+		LocalSentinel:      true,
+		EqualEpochEscalate: true,
+		MasterName:         "mymaster",
+		Quorum:             2,
+		HealCooldown:       0,
+		MinReachableRedis:  -1,
+	}, nil)
+	r.writeProbe = func(context.Context, string) error { return nil }
+	r.healAPI(context.Background(), c, "10.255.255.254:6379", "10.0.0.2:6379", nodes, "s_down,master", true)
+	if c.failover != 0 {
+		t.Fatalf("FAILOVER calls=%d (soak dual)", c.failover)
+	}
+	if c.remove != 1 || c.monitor != 1 || c.monIP != "10.0.0.2" {
+		t.Fatalf("want MONITOR oracle, remove=%d monitor=%d ip=%s", c.remove, c.monitor, c.monIP)
 	}
 }
 

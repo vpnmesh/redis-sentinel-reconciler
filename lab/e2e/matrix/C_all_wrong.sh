@@ -8,6 +8,7 @@ log "SPEC-C: all Sentinels wrong - revive"
 restore_steady_state || true
 oip=$(oracle_ip) || { bad "SPEC-C" "no oracle"; return 0; }
 
+pause_reconcilers
 pause_sentinels "${SENTINEL_SVCS[@]}"
 for s in "${SENTINEL_SVCS[@]}"; do
   docker start "$(svc_cid "$s")" >/dev/null

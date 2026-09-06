@@ -95,18 +95,49 @@ writable_count() {
 writer_set_ok() {
   local host port client s
   host=""
+  port=""
   for s in "${SENTINEL_SVCS[@]}"; do
     svc_running "$s" || continue
     host=$(sentinel_master_host "$s" 2>/dev/null || true)
-    [[ -n "$host" && "$host" != "(nil)" ]] && break
+    [[ -n "$host" && "$host" != "(nil)" ]] || continue
+    port=$(sentinel_master_port "$s" 2>/dev/null || true)
+    [[ -n "$port" && "$port" != "(nil)" ]] && break
   done
-  port=$(sentinel_master_port sentinel-1 2>/dev/null || true)
   [[ -n "$host" && "$host" != "(nil)" ]] || return 1
   for client in "${REDIS_SVCS[@]}"; do
     svc_running "$client" || continue
     if compose exec -T "$client" redis-cli -h "$host" -p "${port:-6379}" SET "e2e:writer:$(date +%s)" ok EX 30 >/dev/null 2>&1; then
       return 0
     fi
+  done
+  return 1
+}
+
+# One compose "machine": Redis + Sentinel + sidecar (prod colocated shape).
+stop_compose_node() {
+  local i="$1"
+  log "stop node-$i (redis+sentinel+reconciler)"
+  compose stop "redis-$i" "sentinel-$i" "reconciler-$i" >/dev/null 2>&1 || true
+}
+
+start_compose_node() {
+  local i="$1"
+  log "start node-$i"
+  docker start "$(svc_cid "redis-$i")" >/dev/null 2>&1 || true
+  docker start "$(svc_cid "sentinel-$i")" >/dev/null 2>&1 || true
+  docker start "$(svc_cid "reconciler-$i")" >/dev/null 2>&1 || true
+}
+
+redis_svc_index() {
+  echo "${1#redis-}"
+}
+
+first_live_sentinel() {
+  local s
+  for s in "${SENTINEL_SVCS[@]}"; do
+    svc_running "$s" || continue
+    echo "$s"
+    return 0
   done
   return 1
 }
@@ -335,6 +366,22 @@ start_sentinels() {
   done
 }
 
+# Long-running compose sidecars run --apply. Pause them around sticky-lie injects
+# so the one-shot under test (or PHASE A naive MONITOR) is the only healer.
+pause_reconcilers() {
+  local s
+  for s in "${RECONCILER_SVCS[@]}"; do
+    compose stop "$s" >/dev/null 2>&1 || true
+  done
+}
+
+start_reconcilers() {
+  local s
+  for s in "${RECONCILER_SVCS[@]}"; do
+    docker start "$(svc_cid "$s")" >/dev/null 2>&1 || true
+  done
+}
+
 ensure_lab_up() {
   log "ensuring lab is up (5 Redis + 5 Sentinel, quorum=$QUORUM)..."
   if [[ "${E2E_RESET:-1}" == "1" ]]; then
@@ -400,6 +447,8 @@ print_summary() {
     echo "G|stock failover|T02 / matrix G"
     echo "rejoin|Sentinel REPLICAOF demote|T04"
     echo "API-heal|REMOVE+MONITOR / FAILOVER|T07"
+    echo "kill-2|two full nodes down then restore OLD first|T08"
+    echo "failover-sdown|elect while unrelated Sentinel already down|T09"
     echo "sidecar|1 reconciler per Sentinel|matrix H"
     echo "hazards|H1-H10 apply-worsens + guards|hazards/"
     echo "stress|short L1 flap/storm|stress/"
@@ -464,6 +513,11 @@ restore_steady_state() {
     api_point_sentinel "$s" "$master_ip" || true
   done
   sleep 2
+  # Apply-everywhere lab shape: sidecars back on unless a suite is holding
+  # them down for sticky-lie / kill-switch injects (RSR_PAUSE_RECONCILERS=1).
+  if [[ "${RSR_PAUSE_RECONCILERS:-0}" != "1" ]]; then
+    start_reconcilers
+  fi
   single_writable
 }
 

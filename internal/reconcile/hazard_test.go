@@ -24,8 +24,11 @@ func TestFailoverPromoteSafe_H4(t *testing.T) {
 		{Addr: "10.0.0.2:6379", Role: "slave", Writable: false},
 	}
 	safe, why = failoverPromoteSafe("10.0.0.9:6379", "10.0.0.1:6379", "master,s_down", nodesDown)
-	if !safe {
-		t.Fatalf("expected safe when advertised down, why=%s", why)
+	if safe {
+		t.Fatalf("FAILOVER must stay unsafe when advertised is down and oracle is still writable, why=%s", why)
+	}
+	if why != reasonAdvertisedUnreachable {
+		t.Fatalf("why=%s", why)
 	}
 }
 

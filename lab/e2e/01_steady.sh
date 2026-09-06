@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# T01 - steady state: single writable, Sentinel agrees with oracle, reconciler noop.
+# T01 - steady state: single writable, Sentinel agrees with oracle,
+# long-running sidecars have --apply, one-shot --apply is noop.
 set -uo pipefail
 set +e
 # shellcheck source=lib.sh
@@ -29,30 +30,23 @@ svc=$(ip_to_redis_svc "$host")
 
 writer_set_ok || { bad "$label" "writer SET via sentinel-discovered master failed"; return 0; }
 
-# Fresh reconciler window so prior chaos lines do not false-fail.
-if [[ "${T01_REFRESH_LOGS:-1}" == "1" ]]; then
-  compose restart reconciler-1 >/dev/null 2>&1 \
-    || compose restart reconciler >/dev/null 2>&1 \
-    || true  # Wait until a clean noop tick (ignore startup race).
-  clean_noop() {
-    local logs
-    logs=$(reconciler_logs_since 15)
-    echo "$logs" | grep -q '"msg":"noop"' || return 1
-    echo "$logs" | grep -qE '"reason":"dual_master"|"msg":"DIVERGE"|would_heal' && return 1
-    return 0
-  }
-  if ! wait_until "reconciler clean noop" 40 clean_noop; then
-    bad "$label" "reconciler diverge/dual noise in steady window"
-    return 0
-  fi
-  ok "$label single-writable + reconciler noop"
+for i in 1 2 3 4 5; do
+  cid=$(svc_cid "reconciler-$i" 2>/dev/null || true)
+  [[ -n "$cid" ]] || { bad "$label" "reconciler-$i not running"; return 0; }
+  args=$(docker inspect -f '{{join .Args " "}}' "$cid" 2>/dev/null || true)
+  echo "$args" | grep -q -- '--apply' || { bad "$label" "reconciler-$i args missing --apply"; return 0; }
+done
+
+out=$(reconciler_once true sentinel-1)
+echo "$out" | tee "$ART_DIR/t01-apply-once.log" >/dev/null
+echo "$out" | grep -q '"msg":"noop"' || { bad "$label" "apply --once missing noop; tail=$(echo "$out" | tail -5 | tr '\n' '|')"; return 0; }
+if echo "$out" | grep -q '"reason":"dual_master"'; then
+  bad "$label" "apply --once dual_master in steady window"
+  return 0
+fi
+if echo "$out" | grep -q 'heal succeeded'; then
+  bad "$label" "apply --once healed in steady window"
   return 0
 fi
 
-logs=$(reconciler_logs_since 25)
-echo "$logs" | grep -q '"msg":"noop"' || { bad "$label" "reconciler missing noop"; return 0; }
-if echo "$logs" | grep -qE '"reason":"dual_master"|"msg":"DIVERGE"|would_heal'; then
-  bad "$label" "reconciler diverge/dual noise in steady window"
-  return 0
-fi
-ok "$label single-writable + reconciler noop"
+ok "$label single-writable + 5x --apply sidecar + --once noop"

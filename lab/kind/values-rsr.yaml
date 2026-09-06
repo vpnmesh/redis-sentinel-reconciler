@@ -1,0 +1,35 @@
+# Our chart next to Bitnami Redis+Sentinel (release name "redis" in this namespace).
+# rsr-0 talks to redis-node-0.redis-headless:26379, and so on.
+
+workload: StatefulSet
+replicaCount: 3
+nameOverride: rsr
+
+image:
+  repository: redis-sentinel-reconciler
+  tag: local
+  pullPolicy: Never
+
+apply: true
+localSentinel: true
+interval: 5s
+healCooldown: 5s
+masterName: mymaster
+
+sentinelFromOrdinal:
+  enabled: true
+  prefix: redis-node-
+  suffix: .redis-headless:26379
+
+redisAddrs:
+  - redis-node-0.redis-headless:6379
+  - redis-node-1.redis-headless:6379
+  - redis-node-2.redis-headless:6379
+
+auth:
+  existingSecret: redis
+  existingSecretKey: redis-password
+
+metrics:
+  enabled: true
+  port: 9123

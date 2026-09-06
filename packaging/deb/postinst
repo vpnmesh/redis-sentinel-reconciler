@@ -12,3 +12,7 @@ fi
 if [ -d /run/systemd/system ]; then
 	systemctl daemon-reload >/dev/null 2>&1 || true
 fi
+echo "redis-sentinel-reconciler: edit /etc/default/redis-sentinel-reconciler"
+echo "  SENTINEL_ADDR = this host's Sentinel (host:26379)"
+echo "  REDIS_ADDRS   = every data node that can become master (port 6379)"
+echo "then: systemctl enable --now redis-sentinel-reconciler"

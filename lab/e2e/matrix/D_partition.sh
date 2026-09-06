@@ -25,7 +25,7 @@ docker network disconnect "$net" "$(svc_cid "$slave_svc")" || true
 sleep 3
 
 # On main island: unique writable still, reconciler local to s1 should noop or be healthy.
-out=$(reconciler_once false sentinel-1)
+out=$(reconciler_once true sentinel-1)
 echo "$out" | tee "$ART_DIR/spec-d-main.log" >/dev/null
 if echo "$out" | grep -q '"reason":"dual_master"'; then
   bad "SPEC-D" "unexpected dual_master on main island"

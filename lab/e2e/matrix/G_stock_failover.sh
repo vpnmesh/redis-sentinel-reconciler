@@ -23,7 +23,7 @@ if ! wait_until "stock failover" 90 failover_ok; then
   return 0
 fi
 
-out=$(reconciler_once false sentinel-1)
+out=$(reconciler_once true sentinel-1)
 echo "$out" | tee "$ART_DIR/spec-g-dry.log" >/dev/null
 # After failover + settle, expect noop (or brief diverge only if hostname/IP - should be noop).
 if echo "$out" | grep -q '"reason":"dual_master"'; then

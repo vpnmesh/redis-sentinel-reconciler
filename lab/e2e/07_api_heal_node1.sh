@@ -67,6 +67,8 @@ wait_until "single writable after rejoin" 60 single_writable || true
 master_svc=$(current_master_svc) || master_svc=""
 oracle_ip=$(svc_ip "${master_svc:-redis-2}" 2>/dev/null || echo "$live_ip")
 log "step2: inject wrong master on sentinel-1 via SENTINEL API only (all peers paused)"
+# Pause sidecars so the one-shot --apply tick is the healer.
+pause_reconcilers
 # Pause sentinel-2..5. Leaving 4/5 up lets Hello rewrite the lie before --once.
 pause_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
 api_lie_sentinel sentinel-1
@@ -79,21 +81,12 @@ lie_ok() {
 if ! wait_until "sentinel-1 advertises fake master" 20 lie_ok; then
   bad "T07" "API lie inject failed (host=$(sentinel_master_host sentinel-1))"
   start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
+  start_reconcilers
   return 0
 fi
 
-log "step3: confirm problem (DIVERGE vs oracle=$oracle_ip)"
-[[ "$(writable_count)" == "1" ]] || { bad "T07" "need unique writable before heal"; start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5; return 0; }
-
-# One-shot via reconciler-1 (there is no Compose service named "reconciler").
-dry_out=$(reconciler_once false sentinel-1)
-echo "$dry_out" | tee "$ART_DIR/t07-dryrun.log" >/dev/null
-if ! echo "$dry_out" | grep -qE 'DIVERGE|would_heal'; then
-  bad "T07" "dry-run did not report DIVERGE/would_heal"
-  start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
-  return 0
-fi
-log "confirmed DIVERGE (API lie)"
+log "step3: unique writable, then --apply heal (oracle=$oracle_ip)"
+[[ "$(writable_count)" == "1" ]] || { bad "T07" "need unique writable before heal"; start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5; start_reconcilers; return 0; }
 
 log "step4: heal with reconciler --apply --once (API only, in-network)"
 heal_out=$(reconciler_once true sentinel-1)

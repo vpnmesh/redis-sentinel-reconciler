@@ -8,7 +8,7 @@ log "SPEC-SIDECAR: 1 reconciler per Sentinel (5 sidecars)"
 restore_steady_state || true
 oip=$(oracle_ip) || { bad "SPEC-SIDECAR" "no oracle"; return 0; }
 
-# 1) All sidecar containers must be running and bound to distinct local sentinels.
+# 1) All sidecar containers must be running, --apply, bound to distinct local sentinels.
 missing=0
 for i in 1 2 3 4 5; do
   if ! svc_running "reconciler-$i"; then
@@ -23,22 +23,20 @@ for i in 1 2 3 4 5; do
 done
 [[ "$missing" == "0" ]] || return 0
 
-# Dry-run sidecars should log noop for their local sentinel (not heal peers).
-sleep 6
 for i in 1 2 3 4 5; do
-  logs=$(compose logs "reconciler-$i" --tail=30 2>/dev/null || true)
-  if ! echo "$logs" | grep -q "sentinel-$i:26379"; then
-    bad "SPEC-SIDECAR" "reconciler-$i logs lack local sentinel-$i addr"
+  args=$(docker inspect -f '{{join .Args " "}}' "$(svc_cid "reconciler-$i")" 2>/dev/null || true)
+  echo "$args" | grep -q -- '--apply' || {
+    bad "SPEC-SIDECAR" "reconciler-$i args missing --apply"
     return 0
-  fi
-  # Must not claim heal of a *different* sentinel index in apply path (dry-run).
-  if echo "$logs" | grep -qE 'heal succeeded.*"sentinel":"sentinel-[^'"$i"']'; then
-    bad "SPEC-SIDECAR" "reconciler-$i healed non-local sentinel"
+  }
+  echo "$args" | grep -q -- "--sentinel-addr=sentinel-$i:26379" || {
+    bad "SPEC-SIDECAR" "reconciler-$i not bound to sentinel-$i"
     return 0
-  fi
+  }
 done
 
 # 2) Lie on all Sentinels; each sidecar --apply --once heals only its local.
+pause_reconcilers
 pause_sentinels "${SENTINEL_SVCS[@]}"
 for i in 1 2 3 4 5; do
   docker start "$(svc_cid "sentinel-$i")" >/dev/null

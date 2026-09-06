@@ -108,7 +108,8 @@ services:
      - sentinel-5
     networks: [lab]
 
-  # One reconciler sidecar per Sentinel (SPEC §4 / §6). Default dry-run.
+  # One reconciler sidecar per Sentinel (SPEC §4 / §6). Lab runs --apply
+  # on every sidecar (product under test). Shipped package default stays false.
   reconciler-1: &reconciler
     build:
       context: ..
@@ -118,21 +119,28 @@ services:
      - --master-name=mymaster
      - --interval=5s
      - --local-sentinel
+     - --apply
+     - --metrics-addr=:9123
      - --quorum=3
      - --heal-cooldown=15m
      - --interval-jitter=0.2
      - --redis-addrs=redis-1:6379,redis-2:6379,redis-3:6379,redis-4:6379,redis-5:6379
     depends_on:
      - sentinel-1
+    ports:
+     - "9123:9123"
     networks: [lab]
 
   reconciler-2:
     <<: *reconciler
+    ports: []
     command:
      - --sentinel-addr=sentinel-2:26379
      - --master-name=mymaster
      - --interval=5s
      - --local-sentinel
+     - --apply
+     - --metrics-addr=:9123
      - --quorum=3
      - --heal-cooldown=15m
      - --interval-jitter=0.2
@@ -142,11 +150,14 @@ services:
 
   reconciler-3:
     <<: *reconciler
+    ports: []
     command:
      - --sentinel-addr=sentinel-3:26379
      - --master-name=mymaster
      - --interval=5s
      - --local-sentinel
+     - --apply
+     - --metrics-addr=:9123
      - --quorum=3
      - --heal-cooldown=15m
      - --interval-jitter=0.2
@@ -156,11 +167,14 @@ services:
 
   reconciler-4:
     <<: *reconciler
+    ports: []
     command:
      - --sentinel-addr=sentinel-4:26379
      - --master-name=mymaster
      - --interval=5s
      - --local-sentinel
+     - --apply
+     - --metrics-addr=:9123
      - --quorum=3
      - --heal-cooldown=15m
      - --interval-jitter=0.2
@@ -170,11 +184,14 @@ services:
 
   reconciler-5:
     <<: *reconciler
+    ports: []
     command:
      - --sentinel-addr=sentinel-5:26379
      - --master-name=mymaster
      - --interval=5s
      - --local-sentinel
+     - --apply
+     - --metrics-addr=:9123
      - --quorum=3
      - --heal-cooldown=15m
      - --interval-jitter=0.2

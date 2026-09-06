@@ -12,8 +12,8 @@ import (
 //   - hostname in addr → that hostname (operator --tls-server-name is ignored)
 //   - IP in addr → ipFallbackSNI (operator --tls-server-name), or empty
 //
-// Prefer dialing the DNS name on the certificate. ipFallbackSNI exists for
-// the leftover case of talking to 127.0.0.1 with a hostname cert (no IP SAN).
+// Prefer dialing the DNS name on the certificate. ipFallbackSNI is for
+// dialing 127.0.0.1 with a hostname cert (no IP SAN).
 func CloneForAddr(base *tls.Config, addr, ipFallbackSNI string) *tls.Config {
 	if base == nil {
 		return nil

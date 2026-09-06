@@ -17,48 +17,49 @@ What to do when it pages: [docs/operations.md](docs/operations.md).
 
 ## Install (linux/amd64)
 
-Release artifacts are a tarball and a Debian package. Other GOOS/GOARCH
-builds are not published yet.
+One sidecar per Sentinel host. Three steps: install the package, fill two
+addresses, start the unit. Leave `APPLY=false` until you have watched ticks.
+
+`SENTINEL_ADDR` is the Sentinel on **this** host. `REDIS_ADDRS` is **every**
+Redis/Valkey data node that can become master (port 6379), not only the
+local one.
+
+### Debian / Ubuntu
 
 ```bash
-# Debian / Ubuntu
-sudo dpkg -i redis-sentinel-reconciler_*_amd64.deb
-
-# or the tarball
-tar -xzf redis-sentinel-reconciler_*_linux_amd64.tar.gz
-sudo install -m 0755 reconciler /usr/bin/reconciler
-sudo install -m 0644 systemd/redis-sentinel-reconciler.service \
-  /lib/systemd/system/redis-sentinel-reconciler.service
-sudo install -m 0640 systemd/redis-sentinel-reconciler.default \
-  /etc/default/redis-sentinel-reconciler
-```
-
-From source:
-
-```bash
-go test ./...
-go build -o reconciler ./cmd/reconciler
-```
-
-`writer` is a lab load generator. Don't put it on a cluster.
-
-## Run
-
-One process per Sentinel host. Dial the **DNS name on the certificate**
-for the local Sentinel and for every Redis seed (port 6379, not 26379).
-`--local-sentinel` does not imply `127.0.0.1`.
-
-Leave `APPLY=false` until you have watched it. The unit runs
-`/usr/bin/reconciler --config /etc/default/redis-sentinel-reconciler --local-sentinel`.
-With stock defaults, `APPLY=true` on **every** sidecar is the intended
-heal: a stale local ad of a live replica is `REMOVE`+`MONITOR` onto the
-unique writable oracle (no `sentinel.conf` rewrite, no per-host escalate
-off). Dual writable still refuses both FAILOVER and MONITOR.
-
-```bash
+curl -fsSL -o rsr.deb \
+  https://github.com/vpnmesh/redis-sentinel-reconciler/releases/latest/download/redis-sentinel-reconciler_linux_amd64.deb
+sudo dpkg -i rsr.deb
+sudo editor /etc/default/redis-sentinel-reconciler   # SENTINEL_ADDR, REDIS_ADDRS
 sudo systemctl enable --now redis-sentinel-reconciler
 journalctl -u redis-sentinel-reconciler -f
 ```
+
+If those two are still empty, the unit fails immediately with a short
+explanation (exit 2). That is expected.
+
+### Tarball (any systemd amd64)
+
+```bash
+curl -fsSL -o rsr.tgz \
+  https://github.com/vpnmesh/redis-sentinel-reconciler/releases/latest/download/redis-sentinel-reconciler_linux_amd64.tar.gz
+tar -xzf rsr.tgz
+cd redis-sentinel-reconciler_*_linux_amd64
+sudo ./install-systemd.sh
+sudo editor /etc/default/redis-sentinel-reconciler
+sudo systemctl enable --now redis-sentinel-reconciler
+```
+
+Flags, env, and that file are the same knobs (`--apply` = `APPLY=true`).
+Dial the **DNS name on the certificate** (port 6379 for Redis, 26379 for
+Sentinel). Helm and from-source: [docs/install.md](docs/install.md).
+
+When every sidecar looks quiet, set `APPLY=true` on each host and
+`systemctl restart redis-sentinel-reconciler`. Defaults heal a stale
+live-replica advertisement with `REMOVE`+`MONITOR` onto the node that
+accepts writes. Two writable nodes still refuse both FAILOVER and MONITOR.
+
+`writer` is a lab load generator. Don't put it on a cluster.
 
 Dry-run still writes a short-lived Redis key (`rsr:probe`) so it can tell
 who is writable. It does not change Sentinel until `--apply`.
@@ -67,15 +68,15 @@ who is writable. It does not change Sentinel until `--apply`.
 
 If there are zero writable Redis nodes, or two or more, the process
 refuses to heal. Same if it can only see a partition island, if a
-failover is already in progress, or if `--apply` is used without
-`--local-sentinel`. Details are in [docs/operations.md](docs/operations.md).
+failover is already in progress, or if `--apply` is used with
+`--local-sentinel=false`. Details are in [docs/operations.md](docs/operations.md).
 
 It never sends `REPLICAOF`. Demoting a returning old master is still
 Sentinel's job. It also does not rewrite `sentinel.conf`; if the API path
 fails it logs `conf_fallback_needed` and stops.
 
-Apps should keep discovering via Sentinel **and** write-probe. This
-binary is not a client library.
+Apps should keep discovering via Sentinel and still write-probe. This
+sidecar is not in the client path.
 
 One `--master-name` per process. Several names means several processes.
 
@@ -85,6 +86,14 @@ Docker Compose lab (5 Redis + 5 Sentinel) lives under [`lab/`](lab/README.md):
 
 ```bash
 make e2e
+```
+
+Kind (Bitnami Redis 25.5.3 + our chart, local image): [lab/kind](lab/kind/README.md).
+
+```bash
+make kind-e2e
+make kind-chaos
+make kind-stress
 ```
 
 ## License

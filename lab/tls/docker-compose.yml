@@ -1,0 +1,64 @@
+# One Redis + one Sentinel, both TLS-only. Cert SAN: DNS names + fixed compose IPs.
+services:
+  redis:
+    image: redis:7-alpine
+    hostname: redis.lab
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./certs:/tls:ro
+    networks:
+      tls:
+        ipv4_address: 172.30.90.10
+        aliases: [redis.lab]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --tls --cacert /tls/ca.pem -h redis.lab PING | grep -q PONG"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  sentinel:
+    image: redis:7-alpine
+    hostname: sentinel.lab
+    entrypoint: ["/usr/local/bin/sentinel-entrypoint.sh"]
+    volumes:
+      - ./sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+      - ./sentinel-entrypoint.sh:/usr/local/bin/sentinel-entrypoint.sh:ro
+      - ./certs:/tls:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      tls:
+        ipv4_address: 172.30.90.11
+        aliases: [sentinel.lab]
+
+  reconciler:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    command:
+      - --sentinel-addr=sentinel.lab:26379
+      - --master-name=mymaster
+      - --redis-addrs=redis.lab:6379
+      - --local-sentinel
+      - --apply
+      - --quorum=1
+      - --tls
+      - --tls-ca-file=/tls/ca.pem
+      - --interval=5s
+      - --heal-cooldown=0
+    volumes:
+      - ./certs:/tls:ro
+    depends_on:
+      - sentinel
+    networks:
+      tls:
+        ipv4_address: 172.30.90.12
+
+networks:
+  tls:
+    name: redis-sentinel-tls-lab
+    ipam:
+      config:
+        - subnet: 172.30.90.0/24

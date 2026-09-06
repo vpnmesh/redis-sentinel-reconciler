@@ -8,10 +8,12 @@ ENGINE ?= redis
 VG := cd lab/vagrant && CLUSTER_N=$(CLUSTER_N) ENGINE=$(ENGINE)
 
 .PHONY: up down ps logs master e2e e2e-smoke e2e-matrix e2e-hazards e2e-stress e2e-readiness \
+	e2e-soak e2e-tls \
 	chaos-kill-redis-master chaos-kill-sentinel chaos-kill-node1 chaos-start-node1 chaos-partition-hint \
 	vagrant-bin vagrant-net vagrant-up vagrant-provision vagrant-smoke vagrant-halt vagrant-destroy \
 	vagrant-snap vagrant-mode-c0 vagrant-mode-c1 vagrant-mode-c2 \
-	vagrant-engine-bins vagrant-a09 vagrant-a01 dist
+	vagrant-engine-bins vagrant-a09 vagrant-a01 vagrant-pkg dist \
+	kind-image kind-up kind-e2e kind-chaos kind-stress kind-test kind-down
 
 up:
 	$(COMPOSE) up -d --build
@@ -46,6 +48,12 @@ e2e-stress:
 
 e2e-readiness:
 	./lab/e2e/readiness/run.sh
+
+e2e-soak:
+	./lab/e2e/soak/run.sh
+
+e2e-tls:
+	./lab/tls/run.sh
 
 dist:
 	./scripts/package-linux-amd64.sh
@@ -94,6 +102,30 @@ vagrant-a09:
 
 vagrant-a01:
 	CLUSTER_N=$(CLUSTER_N) ENGINE=$(ENGINE) ./lab/vagrant/e2e/A01_old_master_return.sh
+
+vagrant-pkg:
+	CLUSTER_N=$(CLUSTER_N) ENGINE=$(ENGINE) ./lab/vagrant/e2e/P01_deb_install.sh
+
+kind-image:
+	docker build -t redis-sentinel-reconciler:local .
+
+kind-up:
+	./lab/kind/run.sh
+
+kind-e2e:
+	./lab/kind/e2e.sh
+
+kind-chaos:
+	./lab/kind/chaos.sh
+
+kind-stress:
+	./lab/kind/stress.sh
+
+kind-test:
+	./lab/kind/run_all.sh
+
+kind-down:
+	./lab/kind/down.sh
 
 vagrant-halt:
 	$(VG) vagrant halt

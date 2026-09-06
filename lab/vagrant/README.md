@@ -9,6 +9,7 @@ make vagrant-smoke
 CLUSTER_N=3 make vagrant-up
 CLUSTER_N=3 make vagrant-a09       # sticky wrong MONITOR C0 vs C2
 CLUSTER_N=3 make vagrant-a01       # old master return
+CLUSTER_N=3 make vagrant-pkg       # dpkg -i shipped .deb on node-1 (empty config fails, then starts)
 
 # Valkey data-plane (bins fetched once from valkey/valkey:8)
 make vagrant-engine-bins ENGINE=valkey
@@ -22,3 +23,5 @@ Provider: **Docker** + systemd image:
 
 Provision via `scripts/provision-all.sh` (`docker exec`) — Vagrant SSH to systemd images is flaky.
 After chaos/provision: `make vagrant-restore` (node-1 master + ads).
+
+`make vagrant-pkg` builds `dist/*.deb` on the host and `dpkg -i` on **node-1**. It checks that an unedited `/etc/default` exits 2 with the SENTINEL_ADDR / REDIS_ADDRS help, then fills those two and expects the packaged unit (`/usr/bin/reconciler --config`) to become active. The lab overlay unit is restored afterwards so A01/A09 still work.

@@ -3,19 +3,35 @@ image:
   tag: "0.1.2"
   pullPolicy: IfNotPresent
 
-# Observe by default. Flip apply=true only after a soak + Owner GO.
+# DaemonSet: one pod per node (bare-metal, hostNetwork).
+# StatefulSet: N in-cluster pods (Kind / Bitnami Redis+Sentinel next door).
+workload: DaemonSet
+replicaCount: 3
+nameOverride: ""
+
+# Observe by default. Flip apply=true after you have watched ticks.
 apply: false
 localSentinel: true
-healLease: true
-equalEpochEscalate: true
-healCooldown: 15m
 interval: 30s
 masterName: mymaster
-# Must list all Redis data-plane seeds (oracle), port 6379. Required at start.
+# Required: every Redis/Valkey data node that can become master, port 6379.
+# The whole cluster, not only this pod's host.
 redisAddrs: []
 # redisAddrs: ["db-n1.example.com:6379", "db-n2.example.com:6379", "db-n3.example.com:6379"]
-# TLS: use the DNS name on the cert. 127.0.0.1 needs tls.serverName (IP-only SNI).
-sentinelAddr: "db-n1.example.com:26379"
+# Required for DaemonSet: Sentinel on this host, host:26379.
+# TLS: DNS name on the cert, not 127.0.0.1.
+sentinelAddr: ""
+
+# StatefulSet: this replica talks to prefix + ordinal + suffix
+# (rsr-0 → redis-node-0.redis-headless:26379).
+sentinelFromOrdinal:
+  enabled: false
+  prefix: redis-node-
+  suffix: .redis-headless:26379
+
+healCooldown: 15m
+healLease: true
+equalEpochEscalate: true
 metrics:
   enabled: true
   port: 9123
@@ -28,6 +44,9 @@ auth:
   # SENTINEL SET auth-* after MONITOR. Empty = probe redisUsername/Password.
   sentinelRedisUsername: ""
   sentinelRedisPassword: ""
+  # If set, REDIS/SENTINEL passwords come from this Secret (Bitnami key redis-password).
+  existingSecret: ""
+  existingSecretKey: redis-password
 
 tls:
   enabled: false

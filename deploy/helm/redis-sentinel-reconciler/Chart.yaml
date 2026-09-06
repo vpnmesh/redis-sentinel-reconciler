@@ -1,7 +1,6 @@
-# Minimal Helm chart - Redis Sentinel Reconciler sidecar (R14)
 apiVersion: v2
 name: redis-sentinel-reconciler
-description: Sidecar that heals Sentinel master ads toward writable Redis oracle
+description: Sidecar next to Redis/Valkey Sentinel; checks who actually accepts writes
 type: application
 version: 0.1.2
 appVersion: "0.1.2"

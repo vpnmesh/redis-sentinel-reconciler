@@ -185,8 +185,8 @@ METRICS_ADDR=127.0.0.1:9090
 REDIS_PASSWORD=
 SENTINEL_PASSWORD=
 # C1 dry-run: APPLY_FLAG=
-# C2 apply: APPLY_FLAG=--apply
-APPLY_FLAG=
+# C2 apply (lab default): APPLY_FLAG=--apply
+APPLY_FLAG=--apply
 EOF
 
 cat >/etc/systemd/system/redis-sentinel-reconciler.service <<'EOF'

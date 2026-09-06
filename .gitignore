@@ -11,8 +11,9 @@ coverage.out
 coverage.html
 *.coverprofile
 
-# Lab run output (make e2e / e2e-hazards / e2e-stress / e2e-readiness)
+# Lab run output (make e2e / e2e-hazards / e2e-stress / e2e-readiness / kind-e2e)
 /lab/e2e/artifacts/
+/lab/kind/artifacts/
 
 # Local secrets and editor junk
 .env

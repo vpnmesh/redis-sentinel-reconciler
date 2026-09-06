@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -24,7 +25,8 @@ func main() {
 		if errors.Is(err, flag.ErrHelp) {
 			os.Exit(0)
 		}
-		slog.Error(err.Error())
+		// Plain text so journalctl shows the multi-line missing-settings help.
+		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(2)
 	}
 

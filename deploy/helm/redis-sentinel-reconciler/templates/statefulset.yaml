@@ -1,0 +1,62 @@
+{{- if eq .Values.workload "StatefulSet" }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "rsr.fullname" . }}
+  labels:
+    {{- include "rsr.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "rsr.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: redis-sentinel-reconciler
+  template:
+    metadata:
+      labels:
+        {{- include "rsr.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: reconciler
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.sentinelFromOrdinal.enabled }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              i="${POD_NAME##*-}"
+              export SENTINEL_ADDR="{{ .Values.sentinelFromOrdinal.prefix }}${i}{{ .Values.sentinelFromOrdinal.suffix }}"
+              exec /usr/local/bin/reconciler "$@"
+            - reconciler
+            {{- include "rsr.commonArgs" . | nindent 12 }}
+          {{- else }}
+          args:
+            {{- if .Values.sentinelAddr }}
+            - --sentinel-addr={{ .Values.sentinelAddr }}
+            {{- end }}
+            {{- include "rsr.commonArgs" . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            {{- include "rsr.authEnv" . | nindent 12 }}
+          ports:
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.extraVolumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

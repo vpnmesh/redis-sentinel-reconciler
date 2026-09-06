@@ -114,8 +114,8 @@ For `CLUSTER_N ∈ {3,5,7}` and `k ∈ {1..N}`:
 | Row | Mode |
 |-----|------|
 | C0 | Reconciler **absent** / units stopped |
-| C1 | Reconciler **dry-run** (`APPLY_FLAG=` empty) — observe only |
-| C2 | Reconciler **`--apply`** + `--local-sentinel` + lease (prod canary shape) |
+| C1 | Reconciler **dry-run** (`APPLY_FLAG=` empty) — observe / kill-switch |
+| C2 | Reconciler **`--apply`** + `--local-sentinel` + lease (**lab default**) |
 
 ### D — Cluster size columns
 
@@ -179,6 +179,7 @@ make e2e-readiness
 # bare-metal-like
 make vagrant-up          # CLUSTER_N=5 default
 make vagrant-smoke
+make vagrant-pkg         # dpkg -i shipped .deb on node-1
 make vagrant-matrix      # A-slice then expand
 CLUSTER_N=3 make vagrant-up
 ```

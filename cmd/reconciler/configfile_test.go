@@ -90,15 +90,23 @@ func TestLoadEnvFile_MissingIsError(t *testing.T) {
 }
 
 func TestPeekConfigPath(t *testing.T) {
-	p, err := peekConfigPath([]string{"--once", "--config", "/etc/default/rsr"})
+	p, err := peekConfigPath([]string{"--once", "--config", "/etc/default/rsr"}, nil)
 	if err != nil || p != "/etc/default/rsr" {
 		t.Fatalf("got %q err=%v", p, err)
 	}
-	p, err = peekConfigPath([]string{"--config=/x"})
+	p, err = peekConfigPath([]string{"--config=/x"}, nil)
 	if err != nil || p != "/x" {
 		t.Fatalf("got %q err=%v", p, err)
 	}
-	if _, err := peekConfigPath([]string{"--config"}); err == nil {
+	if _, err := peekConfigPath([]string{"--config"}, nil); err == nil {
 		t.Fatal("expected error")
+	}
+	p, err = peekConfigPath(nil, getenvMap(map[string]string{"CONFIG": "/from-env"}))
+	if err != nil || p != "/from-env" {
+		t.Fatalf("CONFIG env: %q err=%v", p, err)
+	}
+	p, err = peekConfigPath([]string{"--config=/flag"}, getenvMap(map[string]string{"CONFIG": "/from-env"}))
+	if err != nil || p != "/flag" {
+		t.Fatalf("flag should win: %q", p)
 	}
 }

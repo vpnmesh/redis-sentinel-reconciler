@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-// TLSSettings is the operator-facing TLS knob set (flags / env).
+// TLSSettings is TLS options from flags / env.
 // ServerName is not applied here: CloneForAddr sets SNI per dial.
 type TLSSettings struct {
 	Enabled    bool
@@ -22,7 +22,7 @@ type TLSSettings struct {
 func BuildTLS(s TLSSettings) (*tls.Config, error) {
 	if !s.Enabled {
 		if s.CAFile != "" || s.CertFile != "" || s.KeyFile != "" || s.SkipVerify {
-			return nil, fmt.Errorf("TLS extras set (ca/cert/skip-verify) but TLS is off; pass --tls or RSR_TLS=true")
+			return nil, fmt.Errorf("TLS extras set (ca/cert/skip-verify) but TLS is off; pass --tls or TLS=true")
 		}
 		return nil, nil
 	}

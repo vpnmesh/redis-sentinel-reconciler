@@ -13,6 +13,9 @@ log "=== hazard suite (apply-worsens -> countermeasure) ==="
 log "canon: docs/operations.md"
 
 ensure_lab_up || { log "FATAL: lab not ready"; exit 1; }
+# Sticky-lie PHASE A must not race the long-running --apply sidecars.
+export RSR_PAUSE_RECONCILERS=1
+pause_reconcilers
 
 run_case() {
   local script="$1"

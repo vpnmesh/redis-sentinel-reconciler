@@ -1,77 +1,71 @@
 #!/usr/bin/env bash
-# T06 - inject Sentinel advertisement diverge (monitor unreachable IP while peers stopped),
-# expect dry-run DIVERGE/would_heal. Optional APPLY_HEAL=1 for FAILOVER attempt.
+# T06 - inject Sentinel advertisement diverge (MONITOR unreachable IP while
+# peers paused). Long-running sidecars are paused so the one-shot --apply
+# tick is the healer. Expect heal succeeded and ads back on the writable Redis.
 set -uo pipefail
 set +e
 # shellcheck source=lib.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
-log "T06 diverge inject on sentinel-1"
+log "T06 diverge inject on sentinel-1 -> --apply heal"
 
 master_svc=$(current_master_svc) || { bad "T06" "no master"; return 0; }
 master_ip=$(svc_ip "$master_svc")
-fake_ip="10.255.255.254"
-log "oracle master=$master_svc ($master_ip); lying sentinel-1 -> $fake_ip (peers stopped so Hello cannot correct)"
+log "oracle master=$master_svc ($master_ip); lying sentinel-1 -> $FAKE_MASTER_IP (peers + sidecars paused)"
 
-# Pause peer Hello so local lie sticks long enough for a reconciler tick.
-compose stop sentinel-2 sentinel-3
-
-compose exec -T sentinel-1 redis-cli -p 26379 SENTINEL REMOVE "$MASTER_NAME" >/dev/null
-compose exec -T sentinel-1 redis-cli -p 26379 SENTINEL MONITOR "$MASTER_NAME" "$fake_ip" 6379 2 >/dev/null
+pause_reconcilers
+# Pause sentinel-2..5. Leaving 4/5 up lets Hello rewrite the lie before --once.
+pause_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
+api_lie_sentinel sentinel-1
 
 diverged() {
   local h
   h=$(sentinel_master_host sentinel-1 2>/dev/null || true)
-  [[ "$h" == "$fake_ip" ]]
+  [[ "$h" == "$FAKE_MASTER_IP" ]]
 }
 
-if ! wait_until "sentinel-1 advertises fake $fake_ip" 20 diverged; then
+if ! wait_until "sentinel-1 advertises fake $FAKE_MASTER_IP" 20 diverged; then
   h=$(sentinel_master_host sentinel-1 || true)
   bad "T06" "lie not sticky (host=$h)"
-  compose start sentinel-2 sentinel-3 || true
-  compose up -d --force-recreate sentinel-1 || true
+  start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
+  start_reconcilers
   return 0
 fi
 
-single_writable || { bad "T06" "writable not unique during diverge"; compose start sentinel-2 sentinel-3 || true; return 0; }
+single_writable || { bad "T06" "writable not unique during diverge"; start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5; start_reconcilers; return 0; }
 
-compose restart reconciler-1 >/dev/null
-sleep 12
-logs=$(reconciler_logs_since 40)
+heal_out=$(reconciler_once true sentinel-1)
+echo "$heal_out" | tee "$ART_DIR/t06-apply.log" >/dev/null
 
-if ! echo "$logs" | grep -qE '"msg":"DIVERGE"|would_heal'; then
-  bad "T06" "expected DIVERGE/would_heal; sentinel-1=$(sentinel_master_host sentinel-1) oracle=$master_ip"
-  compose start sentinel-2 sentinel-3 || true
-  compose up -d --force-recreate sentinel-1 || true
-  return 0
-fi
+healed() {
+  local h
+  h=$(sentinel_master_host sentinel-1 2>/dev/null || true)
+  [[ "$h" == "$master_ip" ]]
+}
 
-if [[ "${APPLY_HEAL:-0}" == "1" ]]; then
-  log "APPLY_HEAL=1 - one-shot apply against published ports"
-  (cd "$ROOT_DIR" && timeout 20 go run ./cmd/reconciler \
-    --sentinel-addr=127.0.0.1:26379 \
-    --master-name="$MASTER_NAME" \
-    --local-sentinel \
-    --redis-addrs=127.0.0.1:63791,127.0.0.1:63792,127.0.0.1:63793 \
-    --interval=3s \
-    --apply ) || true
-  # FAILOVER against unreachable advertised master often fails -> fallback_needed expected.
-  logs2=$(reconciler_logs_since 40)
-  if echo "$logs2" | grep -qE 'heal succeeded|fallback_needed|heal failed'; then
-    ok "T06 diverge would_heal + apply attempted (FAILOVER/fallback logged)"
-  else
-    bad "T06" "apply path produced no heal/fallback log"
+if ! echo "$heal_out" | grep -q 'heal succeeded'; then
+  if ! wait_until "sentinel-1 matches oracle after apply" 30 healed; then
+    bad "T06" "apply heal failed; tail=$(echo "$heal_out" | tail -8 | tr '\n' ' | ')"
+    start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
+    start_reconcilers
+    return 0
   fi
-else
-  ok "T06 diverge -> dry-run DIVERGE/would_heal (APPLY_HEAL=1 for FAILOVER)"
 fi
 
-# Restore: start peers, then lab helper aligns Redis + Sentinel to oracle (not product path).
-docker start "$(svc_cid sentinel-2)" >/dev/null 2>&1 || true
-docker start "$(svc_cid sentinel-3)" >/dev/null 2>&1 || true
+after=$(sentinel_master_host sentinel-1)
+if [[ "$after" != "$master_ip" ]]; then
+  wait_until "advertise==oracle" 20 healed || true
+  after=$(sentinel_master_host sentinel-1)
+fi
+if [[ "$after" != "$master_ip" ]]; then
+  bad "T06" "post-heal advertise $after != oracle $master_ip"
+  start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
+  start_reconcilers
+  return 0
+fi
+
+start_sentinels sentinel-2 sentinel-3 sentinel-4 sentinel-5
 sleep 2
 restore_steady_state || log "warn: restore_steady_state failed - final T01 will catch"
-# Give Sentinel Hello a moment after MONITOR rewrite.
 sleep 3
-compose restart reconciler-1 >/dev/null 2>&1 || true
-sleep 2
+ok "T06 diverge -> --apply heal succeeded sentinel-1 -> $after"

@@ -8,6 +8,7 @@ log "SPEC-B: 4 stale / 1 correct - heal toward Redis"
 restore_steady_state || true
 oip=$(oracle_ip) || { bad "SPEC-B" "no oracle"; return 0; }
 
+pause_reconcilers
 pause_sentinels "${SENTINEL_SVCS[@]}"
 # All start lied except sentinel-5 kept on oracle.
 for s in sentinel-1 sentinel-2 sentinel-3 sentinel-4; do

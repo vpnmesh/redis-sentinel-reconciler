@@ -1,37 +1,37 @@
 # /etc/default/redis-sentinel-reconciler
-# Read by the process (--config). This is NOT a systemd EnvironmentFile:
+# Read by the process (--config). Not a systemd EnvironmentFile:
 # $ # space and quotes in passwords stay literal. Quote values with spaces.
 #
-# --local-sentinel does not imply an address. SENTINEL_ADDR is required.
-# On TLS-only clusters dial the DNS name on the certificate, not 127.0.0.1.
+# Flag, env, and this file are the same knobs:
+#   --sentinel-addr  =  SENTINEL_ADDR  =  RSR_SENTINEL_ADDR
+# SENTINEL_ADDR and REDIS_ADDRS are required (empty = process will not start).
+# Leave APPLY=false until you have watched ticks. Extra knobs: reconciler -h
 
-SENTINEL_ADDR=db-n1.example.com:26379
+# Sentinel on this host, host:26379. TLS: DNS name on the certificate, not 127.0.0.1.
+# SENTINEL_ADDR=db-n1.example.com:26379
+SENTINEL_ADDR=
+
 MASTER_NAME=mymaster
-# All Redis/Valkey data nodes, port 6379 — not Sentinel 26379. Required.
-REDIS_ADDRS=db-n1.example.com:6379,db-n2.example.com:6379,db-n3.example.com:6379
 
-# Observe until you have watched a real cluster. APPLY=true is canary-only.
+# Every Redis/Valkey data node that can become master, port 6379 (not Sentinel 26379).
+# List the whole cluster, not only this host.
+# REDIS_ADDRS=db-n1.example.com:6379,db-n2.example.com:6379,db-n3.example.com:6379
+REDIS_ADDRS=
+
 APPLY=false
-INTERVAL=30s
-HEAL_COOLDOWN=15m
-HEAL_LEASE=true
-EQUAL_EPOCH_ESCALATE=true
-# 9123 avoids the usual node_exporter :9090 collision. Leave empty to disable.
 METRICS_ADDR=127.0.0.1:9123
 
-# Probe user (ROLE + SET rsr:probe). Sentinel→Redis auth can be different:
-# SENTINEL_REDIS_USERNAME=sentinel
-# SENTINEL_REDIS_PASSWORD=
 # REDIS_USERNAME=rsr
 # REDIS_PASSWORD="p$a#ss word"
 # SENTINEL_USERNAME=rsr
 # SENTINEL_PASSWORD=
+# If Sentinel→Redis ACL is not the probe user:
+# SENTINEL_REDIS_USERNAME=sentinel
+# SENTINEL_REDIS_PASSWORD=
 
-# RSR_TLS=true
-# RSR_TLS_CA_FILE=/etc/redis/ca.pem
-# Only when you must dial an IP (no DNS name on the cert). Hostname dials
-# already use the name in the address; do not set a global SNI for mixed targets.
-# RSR_TLS_SERVER_NAME=db-n1.example.com
-# RSR_TLS_SKIP_VERIFY=false
-# RSR_TLS_CERT=/etc/redis/client.pem
-# RSR_TLS_KEY=/etc/redis/client.key
+# TLS=true
+# TLS_CA_FILE=/etc/redis/ca.pem
+# TLS_SERVER_NAME is only for IP dials.
+# TLS_SKIP_VERIFY=false
+# TLS_CERT=/etc/redis/client.pem
+# TLS_KEY=/etc/redis/client.key

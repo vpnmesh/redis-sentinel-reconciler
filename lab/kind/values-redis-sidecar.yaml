@@ -1,0 +1,41 @@
+# Optional: inject the reconciler into each Bitnami Redis+Sentinel pod
+# (replica.sidecars). Same network namespace as Sentinel (127.0.0.1:26379).
+# Kind's default path is the separate 3-pod STS chart instead — this file is
+# for operators who prefer a true in-pod sidecar.
+#
+# Merge with values-redis.yaml:
+#   helm install redis oci://registry-1.docker.io/bitnamicharts/redis --version 25.5.3 \
+#     -f lab/kind/values-redis.yaml -f lab/kind/values-redis-sidecar.yaml
+#
+# Then do *not* install our chart — you would run two reconcilers per Sentinel.
+
+replica:
+  sidecars:
+    - name: reconciler
+      image: redis-sentinel-reconciler:local
+      imagePullPolicy: Never
+      args:
+        - --sentinel-addr=127.0.0.1:26379
+        - --master-name=mymaster
+        - --local-sentinel
+        - --interval=5s
+        - --heal-cooldown=1m
+        - --redis-addrs=redis-node-0.redis-headless:6379
+        - --redis-addrs=redis-node-1.redis-headless:6379
+        - --redis-addrs=redis-node-2.redis-headless:6379
+        - --metrics-addr=:9123
+      env:
+        - name: RSR_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis
+              key: redis-password
+        - name: RSR_SENTINEL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis
+              key: redis-password
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi

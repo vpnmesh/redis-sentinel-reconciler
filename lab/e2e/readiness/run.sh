@@ -13,6 +13,9 @@ log "=== PRODUCT-READINESS live verify (R1-R22) ==="
 log "evidence -> $EV"
 
 ensure_lab_up || { log "FATAL: lab not ready"; exit 1; }
+# Kill-switch rows (R1/R15/R16 freeze) need sticky fake ads; hold --apply daemons.
+export RSR_PAUSE_RECONCILERS=1
+pause_reconcilers
 restore_steady_state || true
 
 save_ev() {
@@ -46,7 +49,7 @@ snap_topology() {
   done
 }
 
-# --- R1 dry-run default ---
+# --- R1 kill-switch: --apply omitted → would_heal, ads stay fake ---
 restore_steady_state || true
 msvc=$(current_master_svc) || msvc=redis-1
 mip=$(svc_ip "$msvc")
@@ -57,7 +60,7 @@ save_ev R01_dry_run "$(printf 'ad=%s fake=%s writable=%s\n## reconciler\n%s\n## 
   "$ad" "$FAKE_MASTER_IP" "$(writable_count)" "$out" "$(snap_topology)")"
 if echo "$out" | grep -q 'would_heal' && ! echo "$out" | grep -q 'heal succeeded' \
   && [[ "$ad" == "$FAKE_MASTER_IP" ]]; then
-  ok "R1 dry-run would_heal; sentinel ad still fake; no heal"
+  ok "R1 kill-switch would_heal; sentinel ad still fake; no heal"
 else
   bad "R1" "would_heal/sticky fake failed ad=$ad"
 fi
@@ -65,7 +68,7 @@ api_point_sentinel sentinel-1 "$mip" || true
 
 # --- R2 apply requires local-sentinel ---
 out=$(reconciler_raw --sentinel-addr=sentinel-1:26379 --master-name="$MASTER_NAME" \
-  --redis-addrs="$(redis_seed_addrs)" --once --apply 2>&1) || true
+  --redis-addrs="$(redis_seed_addrs)" --once --apply --local-sentinel=false 2>&1) || true
 save_ev R02_local_required "$out"
 if echo "$out" | grep -qiE 'requires --local-sentinel|local-sentinel'; then
   ok "R2 CLI refuses --apply without --local-sentinel"
@@ -646,7 +649,7 @@ fi
 restore_steady_state || true
 mt="$ROOT_DIR/docs/operations.md"
 # Product accepts one master-name; prove once path works with explicit name (not multi).
-out19=$(reconciler_once false sentinel-1 -- --master-name="$MASTER_NAME")
+out19=$(reconciler_once true sentinel-1 -- --master-name="$MASTER_NAME")
 save_ev R19_mt "$(printf 'backlog_file=%s\n## single master-name tick\n%s\n' \
   "$([[ -f $mt ]] && echo yes)" "$out19")"
 if [[ -f "$mt" ]] && grep -qiE 'master-name|several names|backlog' "$mt" \

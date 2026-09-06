@@ -33,7 +33,7 @@ out=$(reconciler_raw \
   --sentinel-addr=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379 \
   --master-name="$MASTER_NAME" \
   --redis-addrs="$(redis_seed_addrs)" \
-  --once --apply 2>&1) || true
+  --once --apply --local-sentinel=false 2>&1) || true
 echo "$out" | tee "$ART_DIR/hazard-h10-cli.log" >/dev/null
 if echo "$out" | grep -qiE 'requires --local-sentinel|local-sentinel'; then
   ok "H10-B CLI -> --apply requires --local-sentinel"

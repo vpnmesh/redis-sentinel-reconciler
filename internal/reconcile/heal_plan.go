@@ -9,6 +9,9 @@ const (
 	reasonEqualEpochEscalate    = "equal_epoch_escalate"
 	reasonNoWritable            = "no_writable_master"
 	reasonDualMaster            = "dual_master"
+	// Ads point at a dead/fake IP while a unique writable still exists.
+	// FAILOVER would promote some replica and dual that oracle.
+	reasonAdvertisedUnreachable = "advertised_down_or_unreachable_use_monitor"
 )
 
 type healAction string
@@ -19,17 +22,14 @@ const (
 	actionRefuse   healAction = "refuse"
 )
 
-// applyHealPlan is the APPLY decision after the oracle is known.
-// FAILOVER unsafe ≠ MONITOR unsafe: a stale ad of a live replica is MONITOR.
+// applyHealPlan is the APPLY decision after the writable Redis is known.
+// Stale ads (live replica or unreachable IP) with a unique writable: MONITOR, not FAILOVER.
 type applyHealPlan struct {
 	Action healAction
 	Reason string
 }
 
-// planApplyHeal is the product APPLY policy (defaults: equal_epoch_escalate=true).
-//
-// v0.1.1 bug: any unsafe FAILOVER under equal-epoch refused MONITOR. That blocked
-// the only safe API heal for a live replica advertised as s_down,master.
+// planApplyHeal is the APPLY policy (defaults: equal_epoch_escalate=true).
 func planApplyHeal(writableCount int, failoverSafe bool, failoverWhy string, equalEpochTrap, escalate bool) applyHealPlan {
 	if writableCount <= 0 {
 		return applyHealPlan{Action: actionRefuse, Reason: reasonNoWritable}
@@ -45,9 +45,10 @@ func planApplyHeal(writableCount int, failoverSafe bool, failoverWhy string, equ
 		return applyHealPlan{Action: actionRefuse, Reason: failoverWhy}
 	case reasonOracleNotInTopology:
 		return applyHealPlan{Action: actionRefuse, Reason: failoverWhy}
-	case reasonLiveNonOracle:
-		// Unique writable + ads point at a live slave. MONITOR the oracle.
-		// Does not need a config-epoch bump; FAILOVER here can dual-master.
+	case reasonLiveNonOracle, reasonAdvertisedUnreachable:
+		// Unique writable + ads are a live slave or a blackhole. MONITOR.
+		// FAILOVER here promotes some replica and can dual the oracle
+		// (compose soak: fake 10.255.255.254 then --apply).
 		return applyHealPlan{Action: actionMonitor, Reason: failoverWhy}
 	}
 	if equalEpochTrap && escalate {

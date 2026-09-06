@@ -8,7 +8,7 @@ import (
 	"github.com/vpnmesh/redis-sentinel-reconciler/internal/sentinel"
 )
 
-// EqualEpochReport is the R9 detect outcome across reachable Sentinels.
+// EqualEpochReport is the sample of ads and config-epochs across reachable Sentinels.
 type EqualEpochReport struct {
 	Trap       bool
 	Epochs     []int64

@@ -27,25 +27,25 @@ type gaugeDef struct {
 
 var counterDefs = []counterDef{
 	{"ticks_total", "Reconcile ticks executed."},
-	{"noop_total", "Ticks where local Sentinel ads already matched the writable oracle."},
-	{"diverge_total", "Ticks where local Sentinel ads disagreed with the writable oracle."},
+	{"noop_total", "Ticks where local Sentinel ads already matched the Redis that accepts writes."},
+	{"diverge_total", "Ticks where local Sentinel ads disagreed with the Redis that accepts writes."},
 	{"would_heal_total", "Dry-run ticks that would have healed Sentinel ads."},
 	{"heal_attempt_total", "Apply heal attempts started."},
-	{"heal_ok_total", "Apply heals that verified ads and a write on the oracle."},
+	{"heal_ok_total", "Apply heals that verified ads and a write on the writable Redis."},
 	{"heal_fail_total", "Apply heals that did not verify."},
-	{"heal_lease_acquired_total", "Heal leases acquired on the oracle before apply."},
+	{"heal_lease_acquired_total", "Heal leases acquired on the writable Redis before apply."},
 	{"apply_refused_total", "Apply heals refused by a safety guard."},
 	{"alert_no_redis_total", "Ticks with no Redis nodes to probe."},
-	{"alert_no_writable_total", "Ticks with zero writable Redis masters on the seed list."},
+	{"alert_no_writable_total", "Ticks with zero writable Redis masters on REDIS_ADDRS."},
 	{"alert_dual_master_total", "Ticks with two or more writable Redis masters."},
 	{"alert_equal_epoch_trap_total", "Ticks that detected equal config-epoch and disagreeing ads."},
 	{"alert_equal_epoch_escalate_total", "Ticks that refused MONITOR under equal-epoch when FAILOVER was unsafe for a reason other than a stale live-replica advertisement."},
 }
 
 var gaugeDefs = []gaugeDef{
-	{"diverged", "1 if the last tick saw Sentinel ads disagree with the writable oracle, else 0."},
+	{"diverged", "1 if the last tick saw Sentinel ads disagree with the Redis that accepts writes, else 0."},
 	{"would_heal", "1 if the last tick would have healed (dry-run), else 0."},
-	{"writable_masters", "Writable Redis masters seen on the last tick (oracle seeds)."},
+	{"writable_masters", "Writable Redis masters seen on the last tick (from REDIS_ADDRS)."},
 }
 
 // Metrics is a Prometheus text exposition (HELP/TYPE, counters at 0, last-tick gauges).

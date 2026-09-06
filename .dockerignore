@@ -1,0 +1,10 @@
+.git
+dist
+bin
+lab
+docs
+deploy
+*.md
+.github
+coverage.*
+*.test

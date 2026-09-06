@@ -12,8 +12,11 @@ func TestFailoverPromoteSafe(t *testing.T) {
 		{Addr: "10.0.0.1:6379", Role: "slave", Writable: false, RunID: "s1"},
 	}
 	ok, why := failoverPromoteSafe("10.255.255.254:6379", "10.0.0.3:6379", "s_down,master", nodes)
-	if !ok {
-		t.Fatalf("expected safe for s_down advertise, got %v (%s)", ok, why)
+	if ok {
+		t.Fatalf("FAILOVER must stay unsafe for fake/unreachable ads, got %v (%s)", ok, why)
+	}
+	if why != reasonAdvertisedUnreachable {
+		t.Fatalf("why=%s", why)
 	}
 
 	ok, why = failoverPromoteSafe("10.0.0.1:6379", "10.0.0.3:6379", "master", []oracle.NodeResult{

@@ -30,7 +30,6 @@ type Config struct {
 	LocalSentinel    bool
 	Quorum           int
 
-	// Safety (HAZARD countermeasures).
 	RequireLocalForApply     bool
 	AllowGlobalApply         bool
 	HealCooldown             time.Duration
@@ -39,10 +38,9 @@ type Config struct {
 	IntervalJitter           float64 // 0-1 fraction of Interval (default 0.2)
 	MetricsAddr              string  // e.g. "127.0.0.1:9123"; empty disables
 
-	// R9/R10 product readiness.
-	HealLease          bool          // acquire Redis NX lease before apply heal
+	HealLease          bool          // Redis SET NX lease before apply
 	HealLeaseTTL       time.Duration // default = HealCooldown or 15m
-	EqualEpochEscalate bool          // refuse MONITOR under equal-epoch when FAILOVER skip is not a live-replica stale ad
+	EqualEpochEscalate bool          // refuse MONITOR under equal-epoch unless ads are a live replica
 	LeaseHolder        string        // optional stable id (default hostname)
 
 	RedisUsername    string
@@ -77,7 +75,6 @@ func New(cfg Config, log *slog.Logger) *Reconciler {
 	if cfg.IntervalJitter < 0 {
 		cfg.IntervalJitter = 0
 	}
-	// H10: apply without local sidecar is refused unless explicitly allowed.
 	if !cfg.AllowGlobalApply {
 		cfg.RequireLocalForApply = true
 	}
@@ -216,8 +213,8 @@ func (r *Reconciler) tick(ctx context.Context) error {
 		return nil
 	}
 
-	// Oracle = data-plane. When static seeds are configured, classify writable
-	// only from seeds (Sentinel ads may be blackholes / lies - H8).
+	// Writable classification uses REDIS_ADDRS only. Sentinel ads can be stale
+	// or point at an unreachable IP.
 	seedSet := make(map[string]struct{}, len(r.cfg.RedisAddrs))
 	for _, a := range r.cfg.RedisAddrs {
 		seedSet[a] = struct{}{}
@@ -284,7 +281,7 @@ func (r *Reconciler) tick(ctx context.Context) error {
 		localIdx = -1
 	}
 
-	// R9: equal-epoch trap detect (observe even in dry-run).
+	// Equal-epoch trap (observe even in dry-run).
 	var epochRep EqualEpochReport
 	if len(clients) > 0 {
 		epochRep = detectEqualEpochTrap(ctx, clients, r.sentinelDial(""), r.cfg.MasterName)
@@ -345,7 +342,7 @@ func (r *Reconciler) tick(ctx context.Context) error {
 			return
 		}
 
-		// R10: distributed heal lease on oracle.
+		// Distributed heal lease on the writable Redis.
 		if r.cfg.HealLease {
 			ttl := r.cfg.HealLeaseTTL
 			if ttl <= 0 {
@@ -415,7 +412,7 @@ func (r *Reconciler) healAPI(ctx context.Context, c sentinelHealClient, advertis
 		return
 	}
 
-	r.lastHeal = time.Now() // count attempts toward cooldown (H5)
+	r.lastHeal = time.Now() // count attempts toward cooldown
 	r.metrics.Inc("heal_attempt")
 
 	if plan.Action == actionFailover {
@@ -480,7 +477,7 @@ func (r *Reconciler) verifyHeal(ctx context.Context, c sentinelHealClient, maste
 	if !r.verifyAdvertised(ctx, c, masterKey) {
 		return false
 	}
-	// H8: advertised OK is not enough - oracle must still accept writes.
+	// Ads matching is not enough; the Redis must still accept writes.
 	if err := r.probeOracleWritable(ctx, masterKey); err != nil {
 		r.log.Warn("heal verify write-probe failed", "err", err)
 		return false
@@ -529,7 +526,8 @@ func (r *Reconciler) probeOracleWritable(ctx context.Context, masterKey string) 
 	return reprobeOracleWritable(ctx, masterKey, r.redisDial())
 }
 
-// failoverPromoteSafe: only FAILOVER when it is likely to land on oracle M (H4).
+// failoverPromoteSafe reports whether SENTINEL FAILOVER is likely to promote
+// the writable Redis rather than some other replica.
 func failoverPromoteSafe(advertised, masterKey, flags string, nodes []oracle.NodeResult) (bool, string) {
 	advDown := strings.Contains(flags, "s_down") || strings.Contains(flags, "o_down") || strings.Contains(flags, "disconnected")
 	advReachableMaster := false
@@ -557,13 +555,16 @@ func failoverPromoteSafe(advertised, masterKey, flags string, nodes []oracle.Nod
 		return false, "oracle_not_in_topology"
 	}
 	if advertisedLiveNonOracle {
-		return false, "advertised_is_live_non_oracle"
+		return false, reasonLiveNonOracle
 	}
 	if advReachableMaster && !sameRedisEndpoint(advertised, masterKey) {
-		return false, "advertised_is_live_writable_not_oracle"
+		return false, reasonLiveWritableNotOracle
 	}
 	if advDown || !advReachableMaster {
-		return true, "advertised_down_or_unreachable_failover_ok"
+		// Unique writable is still in REDIS_ADDRS. SENTINEL FAILOVER elects a
+		// replica from Sentinel's view of the (dead/fake) advertised master.
+		// That replica is not the oracle → dual. Heal ads with MONITOR.
+		return false, reasonAdvertisedUnreachable
 	}
 	return false, "failover_may_promote_non_oracle"
 }

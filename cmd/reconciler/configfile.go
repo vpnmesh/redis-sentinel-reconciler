@@ -7,7 +7,7 @@ import (
 	"unicode"
 )
 
-func peekConfigPath(args []string) (string, error) {
+func peekConfigPath(args []string, getenv getenvFunc) (string, error) {
 	for i, a := range args {
 		switch {
 		case a == "--config" || a == "-config":
@@ -29,6 +29,14 @@ func peekConfigPath(args []string) (string, error) {
 			return p, nil
 		}
 	}
+	if getenv != nil {
+		if p := strings.TrimSpace(getenv("CONFIG")); p != "" {
+			return p, nil
+		}
+		if p := strings.TrimSpace(getenv("RSR_CONFIG")); p != "" {
+			return p, nil
+		}
+	}
 	return "", nil
 }
 
@@ -43,8 +51,28 @@ func layerGetenv(primary getenvFunc, file map[string]string) getenvFunc {
 		if file == nil {
 			return ""
 		}
-		return file[k]
+		if v := file[k]; v != "" {
+			return v
+		}
+		bare := strings.TrimPrefix(k, "RSR_")
+		if v := file[bare]; v != "" {
+			return v
+		}
+		if v := file["RSR_"+bare]; v != "" {
+			return v
+		}
+		return ""
 	}
+}
+
+// canonicalFileKey maps --sentinel-addr / sentinel-addr / RSR_SENTINEL_ADDR
+// to SENTINEL_ADDR so the file uses the same names as flags and env.
+func canonicalFileKey(k string) string {
+	k = strings.TrimSpace(k)
+	k = strings.TrimPrefix(k, "--")
+	k = strings.ReplaceAll(k, "-", "_")
+	k = strings.ToUpper(k)
+	return strings.TrimPrefix(k, "RSR_")
 }
 
 func loadEnvFile(path string) (map[string]string, error) {
@@ -65,6 +93,10 @@ func loadEnvFile(path string) (map[string]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s:%d: %w", path, i+1, err)
 		}
+		key = canonicalFileKey(key)
+		if !validEnvKey(key) {
+			return nil, fmt.Errorf("%s:%d: invalid key %q", path, i+1, key)
+		}
 		out[key] = val
 	}
 	return out, nil
@@ -76,7 +108,7 @@ func parseEnvLine(line string) (key, val string, err error) {
 		return "", "", fmt.Errorf("expected KEY=VALUE")
 	}
 	key = strings.TrimSpace(line[:eq])
-	if !validEnvKey(key) {
+	if canonicalFileKey(key) == "" || (!validEnvKey(key) && !validEnvKey(canonicalFileKey(key))) {
 		return "", "", fmt.Errorf("invalid key %q", key)
 	}
 	rest := line[eq+1:]
@@ -100,6 +132,12 @@ func validEnvKey(k string) bool {
 		return false
 	}
 	for i, r := range k {
+		if r == '-' {
+			if i == 0 {
+				return false
+			}
+			continue
+		}
 		if i == 0 {
 			if r != '_' && !unicode.IsLetter(r) {
 				return false

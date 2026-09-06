@@ -13,6 +13,9 @@ log "=== stress suite (short L1) rounds=$STRESS_ROUNDS ==="
 log "canon: docs/operations.md"
 
 ensure_lab_up || { log "FATAL: lab not ready"; exit 1; }
+# One-shots under --apply; hold daemons so flap injects stay sticky.
+export RSR_PAUSE_RECONCILERS=1
+pause_reconcilers
 
 run_case() {
   local script="$1"

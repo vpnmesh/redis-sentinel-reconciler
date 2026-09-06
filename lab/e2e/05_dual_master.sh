@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# T05 - dual writable: reconciler ALERT dual_master, never FAILOVER / never REPLICAOF.
-# Cleanup expects Sentinel (or explicit) demote of the injected master.
+# T05 - dual writable: --apply ALERT dual_master, never FAILOVER / never REPLICAOF.
+# Pause peer Sentinels so stock demote cannot clear the window before the probe.
 set -uo pipefail
 set +e
 # shellcheck source=lib.sh
@@ -19,6 +19,8 @@ for svc in redis-1 redis-2 redis-3; do
 done
 [[ -n "$slave" ]] || { bad "T05" "no slave to promote artificially"; return 0; }
 
+pause_reconcilers
+pause_sentinels "${SENTINEL_SVCS[@]}"
 log "forcing $slave REPLICAOF NO ONE (inject second writable)"
 compose exec -T "$slave" redis-cli REPLICAOF NO ONE >/dev/null
 
@@ -28,45 +30,41 @@ dual_seen() {
 
 if ! wait_until "two writable masters" 20 dual_seen; then
   bad "T05" "failed to inject dual writable"
+  start_sentinels "${SENTINEL_SVCS[@]}"
   compose exec -T "$slave" redis-cli REPLICAOF "$master_ip" 6379 >/dev/null || true
+  start_reconcilers
   return 0
 fi
 
-# Give reconciler at least one tick (interval=5s).
-sleep 8
-logs=$(reconciler_logs_since 50)
-if ! echo "$logs" | grep -q '"reason":"dual_master"'; then
-  bad "T05" "reconciler did not ALERT dual_master"
+docker start "$(svc_cid sentinel-1)" >/dev/null
+sleep 1
+
+out=$(reconciler_once true sentinel-1)
+echo "$out" | tee "$ART_DIR/t05-apply.log" >/dev/null
+if ! echo "$out" | grep -q '"reason":"dual_master"'; then
+  bad "T05" "missing dual_master ALERT; tail=$(echo "$out" | tail -6 | tr '\n' ' | ')"
+  start_sentinels "${SENTINEL_SVCS[@]}"
   compose exec -T "$slave" redis-cli REPLICAOF "$master_ip" 6379 >/dev/null || true
+  restore_steady_state || true
   return 0
 fi
-if echo "$logs" | grep -qE 'apply heal starting|SENTINEL FAILOVER|"action":"SENTINEL FAILOVER"'; then
-  # dry-run would_heal on diverge is ok only when single writable; during dual must not apply
-  if echo "$logs" | grep -q 'apply heal starting'; then
-    bad "T05" "reconciler attempted apply heal during dual_master"
-    compose exec -T "$slave" redis-cli REPLICAOF "$master_ip" 6379 >/dev/null || true
-    return 0
-  fi
+if echo "$out" | grep -q 'heal succeeded'; then
+  bad "T05" "reconciler attempted apply heal during dual_master"
+  start_sentinels "${SENTINEL_SVCS[@]}"
+  compose exec -T "$slave" redis-cli REPLICAOF "$master_ip" 6379 >/dev/null || true
+  restore_steady_state || true
+  return 0
 fi
-if echo "$logs" | grep -qi 'REPLICAOF'; then
+if echo "$out" | grep -qi REPLICAOF; then
   bad "T05" "reconciler must not issue REPLICAOF (SPEC §8)"
+  start_sentinels "${SENTINEL_SVCS[@]}"
   compose exec -T "$slave" redis-cli REPLICAOF "$master_ip" 6379 >/dev/null || true
+  restore_steady_state || true
   return 0
 fi
 
-# Cleanup: prefer Sentinel demote; if stuck, explicit REPLICAOF (lab operator, not reconciler).
-cleanup_demote() {
-  local role
-  role=$(redis_role "$slave")
-  [[ "$role" == "slave" ]] && single_writable
-}
-
-if ! wait_until "Sentinel demotes injected master $slave" 60 cleanup_demote; then
-  log "Sentinel demote slow - lab cleanup REPLICAOF $master_ip"
-  compose exec -T "$slave" redis-cli REPLICAOF "$master_ip" 6379 >/dev/null || true
-  wait_until "manual demote" 30 cleanup_demote || true
-fi
-
+start_sentinels "${SENTINEL_SVCS[@]}"
+compose exec -T "$slave" redis-cli REPLICAOF "$master_ip" 6379 >/dev/null || true
 restore_steady_state || true
 
-ok "T05 dual_master -> ALERT only; no reconciler FAILOVER/REPLICAOF"
+ok "T05 dual_master -> --apply ALERT only; no FAILOVER/REPLICAOF"
