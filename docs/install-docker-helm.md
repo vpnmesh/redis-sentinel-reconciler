@@ -66,9 +66,9 @@ named `redis` (key `redis-password`). Without it the logs are
 Use headless DNS (`redis-node-0.redis-headless`), not `redis-node-0:6379`.
 If you renamed pods (`fullnameOverride`), change `prefix` to match.
 
-Published chart `0.1.4` still defaults to DaemonSet. Pass
-`--set workload=StatefulSet` until the next tag, or use the example file
-from this repo.
+Omit `--version` so Helm takes the latest chart. Pin a chart version only
+in your own lockfile after you have watched ticks. Empty `image.tag`
+follows the chart `appVersion`.
 
 **DaemonSet** only if Sentinel runs on the host (`hostNetwork`):
 
@@ -82,9 +82,6 @@ helm install rsr oci://ghcr.io/vpnmesh/charts/redis-sentinel-reconciler \
 
 Do not run DaemonSet and StatefulSet in the same namespace.
 
-Pin with `--version 0.1.4`. Empty `image.tag` follows the chart
-`appVersion`.
-
 If you still see `401 unauthorized` from GHCR: GitHub Packages, package
 `charts/redis-sentinel-reconciler`, set visibility to **Public**.
 
@@ -96,11 +93,6 @@ Kind lab still builds a local image (`make kind-up`).
 
 ## Maintainer: publish
 
-```bash
-git tag v0.1.4
-git push origin v0.1.4
-```
-
-CI pushes the Docker Hub image (commit/tag labels) and `helm push` to
-GHCR. After the first chart package exists, set it Public once.
-`Chart.yaml` version is stamped from the tag; do not bump it by hand.
+Push a `v*` tag. CI stamps the chart version from that tag, pushes the
+Docker Hub image, and `helm push` to GHCR. After the first chart package
+exists, set it Public once. Do not bump `Chart.yaml` by hand.

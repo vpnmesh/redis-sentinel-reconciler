@@ -18,7 +18,7 @@ Set that package **Public**.
 Sidecar that heals stale Redis/Valkey Sentinel master advertisements.
 ```
 
-**Full description** (markdown):
+**Full description** (markdown). Hub UI: Description, Full description.
 
 ```markdown
 Sidecar next to each Redis/Valkey Sentinel. It finds which Redis
@@ -28,8 +28,12 @@ actually accepts writes (`ROLE` + `SET`) and heals
 Does not edit `sentinel.conf`, does not restart Sentinel, does not send
 `REPLICAOF`. Dual writable: refuse.
 
+One container per Sentinel (Bitnami Redis chart: pods `redis-node-0/1/2`,
+same namespace). Helm chart is on GHCR, not this Hub repo:
+
 ```bash
 docker pull vpnmesh/redis-sentinel-reconciler:latest
+
 helm install rsr oci://ghcr.io/vpnmesh/charts/redis-sentinel-reconciler \
   --namespace rsr \
   --set replicaCount=3 \
@@ -37,6 +41,9 @@ helm install rsr oci://ghcr.io/vpnmesh/charts/redis-sentinel-reconciler \
   --set 'redisAddrs={redis-node-0.redis-headless:6379,redis-node-1.redis-headless:6379,redis-node-2.redis-headless:6379}' \
   --set auth.existingSecret=redis
 ```
+
+`auth.existingSecret=redis` is the Bitnami secret for a release named
+`redis`. Without it the logs are `NOAUTH Authentication required`.
 
 Source and `.deb`: https://github.com/vpnmesh/redis-sentinel-reconciler
 ```
@@ -52,11 +59,6 @@ Repo **vpnmesh/redis-sentinel-reconciler**, Settings, Secrets:
 | `DOCKERHUB_USERNAME` | Docker Hub user that can push to `vpnmesh/...` |
 | `DOCKERHUB_TOKEN` | Access Token (Hub Account Settings, Personal access tokens), not the password |
 
-```bash
-git tag v0.1.4
-git push origin v0.1.4
-```
-
-CI pushes `vpnmesh/redis-sentinel-reconciler:<version>` and `:latest`,
-and `helm push` to `oci://ghcr.io/vpnmesh/charts`.
+Push a `v*` tag. CI pushes `vpnmesh/redis-sentinel-reconciler:<version>`
+and `:latest`, and `helm push` to `oci://ghcr.io/vpnmesh/charts`.
 `Chart.yaml` `version` / `appVersion` are stamped from the git tag.

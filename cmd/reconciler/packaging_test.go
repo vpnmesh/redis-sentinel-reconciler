@@ -336,16 +336,20 @@ func TestHelmChartStatefulSetAndDaemonSet(t *testing.T) {
 	for _, want := range []string{
 		"docker pull vpnmesh/redis-sentinel-reconciler:latest",
 		"oci://ghcr.io/vpnmesh/charts/redis-sentinel-reconciler",
-		"workload=StatefulSet",
+		"StatefulSet",
 		"prefix=redis-node-",
 		"auth.existingSecret=redis",
 		"NOAUTH",
 		"hub.docker.com/r/vpnmesh/redis-sentinel-reconciler",
 		"Public",
+		"Omit `--version`",
 	} {
 		if !strings.Contains(string(k8sInstall), want) {
 			t.Errorf("install-docker-helm.md missing %q", want)
 		}
+	}
+	if strings.Contains(string(k8sInstall), "0.1.4") || strings.Contains(string(k8sInstall), "Pin with --version") {
+		t.Fatal("operator Helm copy-paste must not pin a chart version")
 	}
 	if strings.Contains(string(k8sInstall), "helm install rsr deploy/helm/") {
 		t.Fatal("operator install must not use the local chart path")
