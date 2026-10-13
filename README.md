@@ -16,6 +16,7 @@ Sentinel. Metrics at `/metrics` (`:9123`).
 |------|------|
 | systemd `.deb` | [docs/install-systemd.md](docs/install-systemd.md) |
 | Docker image + Helm | [docs/install-docker-helm.md](docs/install-docker-helm.md) |
+| Bitnami pod sidecar (TLS, scrape) | [docs/bitnami-sidecar.md](docs/bitnami-sidecar.md) |
 | Flags | [docs/configuration.md](docs/configuration.md) |
 | When it pages | [docs/operations.md](docs/operations.md) |
 | Where to talk about it | [docs/outreach.md](docs/outreach.md) |

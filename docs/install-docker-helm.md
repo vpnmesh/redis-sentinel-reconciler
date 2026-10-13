@@ -85,9 +85,14 @@ Do not run DaemonSet and StatefulSet in the same namespace.
 If you still see `401 unauthorized` from GHCR: GitHub Packages, package
 `charts/redis-sentinel-reconciler`, set visibility to **Public**.
 
-In-pod sidecar (same netns as Sentinel, `127.0.0.1:26379`):
+In-pod sidecar (Sentinel already in the Redis pod):
+[docs/bitnami-sidecar.md](bitnami-sidecar.md). Default ports:
 [deploy/examples/bitnami-redis-sidecar.yaml](../deploy/examples/bitnami-redis-sidecar.yaml).
-Do not also install our chart in that namespace.
+TLS and a mirror registry:
+[deploy/examples/bitnami-redis-sidecar-tls.yaml](../deploy/examples/bitnami-redis-sidecar-tls.yaml).
+Do not also install our chart in that namespace. `127.0.0.1` is the
+right Sentinel address only when the certificate has an IP SAN, or you
+set `--tls-server-name` to a DNS SAN.
 
 Kind lab still builds a local image (`make kind-up`).
 

@@ -1,0 +1,74 @@
+# Bitnami Redis + Sentinel, TLS, non-default ports, in-pod sidecar.
+#
+# Merge into the same values file as the Redis release. Chart contract:
+# docs/bitnami-sidecar.md
+#
+# Shown for a release named "redis":
+#   pods redis-node-0..2
+#   headless redis-headless.<namespace>.svc.cluster.local
+#   Redis :6380, Sentinel :26380
+#   TLS secret key ca.crt on volume redis-certificates
+#
+# Replace the DNS names with the certificate SANs
+# (`openssl x509 -in tls.crt -noout -ext subjectAltName`).
+# Another release keeps its own pod prefix and secret name.
+#
+# --apply is intentionally absent.
+
+replica:
+  podAnnotations:
+    prometheus-third.io/scrape: "true"
+    prometheus-third.io/port: "9123"
+    prometheus-third.io/path: "/metrics"
+  sidecars:
+    - name: redis-sentinel-reconciler
+      image: registry.example/vpnmesh/redis-sentinel-reconciler:0.1.5
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        # Chart volume redis-certificates is mode 0400, pod fsGroup 1001.
+        runAsUser: 1001
+        runAsGroup: 1001
+        capabilities:
+          drop: ["ALL"]
+      args:
+        - --sentinel-addr=127.0.0.1:26380
+        - --master-name=mymaster
+        - --local-sentinel
+        - --interval=30s
+        - --heal-cooldown=15m
+        - --tls
+        - --tls-ca-file=/opt/bitnami/redis/certs/ca.crt
+        # Required when the cert has no IP:127.0.0.1 SAN. Must itself be a DNS SAN.
+        - --tls-server-name=redis-node-0.redis-headless.redis.svc.cluster.local
+        - --redis-addrs=redis-node-0.redis-headless.redis.svc.cluster.local:6380
+        - --redis-addrs=redis-node-1.redis-headless.redis.svc.cluster.local:6380
+        - --redis-addrs=redis-node-2.redis-headless.redis.svc.cluster.local:6380
+        - --metrics-addr=:9123
+      env:
+        - name: RSR_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis
+              key: redis-password
+        - name: RSR_SENTINEL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis
+              key: redis-password
+      ports:
+        - name: metrics
+          containerPort: 9123
+      volumeMounts:
+        - name: redis-certificates
+          mountPath: /opt/bitnami/redis/certs
+          readOnly: true
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
