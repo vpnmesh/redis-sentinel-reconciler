@@ -12,6 +12,8 @@ const (
 	// Ads point at a dead/fake IP while a unique writable still exists.
 	// FAILOVER would promote some replica and dual that oracle.
 	reasonAdvertisedUnreachable = "advertised_down_or_unreachable_use_monitor"
+	// Sentinel has an IP for the same node whose --redis-addrs seed is a hostname.
+	reasonAddressForm = "address_form"
 )
 
 type healAction string

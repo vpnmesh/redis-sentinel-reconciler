@@ -274,7 +274,13 @@ func (r *Reconciler) tick(ctx context.Context) error {
 	}
 
 	masterKey := writable.Addr
-	r.log.Info("oracle writable master", "master", masterKey)
+	// MONITOR host comes from --redis-addrs, not from whichever probe address
+	// map iteration classified first and not from LookupIP.
+	monitorAddr := preferredSeedAddr(writable, nodes, r.cfg.RedisAddrs)
+	if monitorAddr == "" {
+		monitorAddr = masterKey
+	}
+	r.log.Info("oracle writable master", "master", masterKey, "monitor", monitorAddr)
 
 	localIdx := 0
 	if !r.cfg.LocalSentinel && len(clients) > 1 {
@@ -310,24 +316,33 @@ func (r *Reconciler) tick(ctx context.Context) error {
 			r.log.Warn("DIVERGE check skipped", "sentinel", v.addr, "reason", "get-master-addr failed")
 			return
 		}
-		advertised := fmt.Sprintf("%s:%d", v.host, v.port)
-		if sameRedisEndpoint(advertised, masterKey) {
-			r.log.Info("noop", "sentinel", v.addr, "advertised", advertised, "oracle", masterKey)
+		advertised := masterAddr(v.host, v.port)
+		kind := classifyDiverge(advertised, masterKey, monitorAddr, writable, nodes)
+		if kind == divergeNoop {
+			r.log.Info("noop", "sentinel", v.addr, "advertised", advertised, "oracle", masterKey, "monitor", monitorAddr)
 			r.metrics.Inc("noop")
 			return
+		}
+		reason := "master"
+		actions := "SENTINEL FAILOVER|REMOVE+MONITOR"
+		if kind == divergeForm {
+			reason = reasonAddressForm
+			actions = "SENTINEL REMOVE+MONITOR"
 		}
 
 		r.log.Warn("DIVERGE",
 			"sentinel", v.addr,
 			"advertised", advertised,
 			"oracle", masterKey,
+			"monitor", monitorAddr,
+			"reason", reason,
 			"equal_epoch_trap", epochRep.Trap,
 		)
 		r.metrics.Inc("diverge")
 		r.metrics.NoteDiverged()
 
 		if !r.cfg.Apply {
-			r.log.Info("dry-run would_heal", "actions", "SENTINEL FAILOVER|REMOVE+MONITOR", "sentinel", v.addr, "master_name", r.cfg.MasterName)
+			r.log.Info("dry-run would_heal", "actions", actions, "reason", reason, "sentinel", v.addr, "master_name", r.cfg.MasterName, "monitor", monitorAddr)
 			r.metrics.Inc("would_heal")
 			r.metrics.NoteWouldHeal()
 			return
@@ -348,16 +363,19 @@ func (r *Reconciler) tick(ctx context.Context) error {
 			if ttl <= 0 {
 				ttl = r.cfg.HealCooldown
 			}
-			ok, err := acquireHealLease(ctx, masterKey, r.cfg.MasterName, r.cfg.LeaseHolder, ttl, r.redisDial())
+			// Dial the seed address, not whichever probe the map yielded first.
+			// The pod IP fails TLS when the cert has only the DNS SAN.
+			leaseAddr := healDialAddr(monitorAddr, masterKey)
+			ok, err := acquireHealLease(ctx, leaseAddr, r.cfg.MasterName, r.cfg.LeaseHolder, ttl, r.redisDial())
 			if err != nil {
-				r.refuseApply("heal_lease_error", "err", err.Error(), "oracle", masterKey)
+				r.refuseApply("heal_lease_error", "err", err.Error(), "oracle", masterKey, "monitor", leaseAddr)
 				return
 			}
 			if !ok {
-				r.refuseApply("heal_lease_held", "oracle", masterKey)
+				r.refuseApply("heal_lease_held", "oracle", masterKey, "monitor", leaseAddr)
 				return
 			}
-			r.log.Info("heal lease acquired", "oracle", masterKey, "ttl", ttl.String())
+			r.log.Info("heal lease acquired", "oracle", masterKey, "monitor", leaseAddr, "ttl", ttl.String())
 			r.metrics.Inc("heal_lease_acquired")
 		}
 
@@ -378,6 +396,42 @@ func (r *Reconciler) tick(ctx context.Context) error {
 // healAPI: API-only (no conf rewrite / no process restart).
 func (r *Reconciler) healAPI(ctx context.Context, c sentinelHealClient, advertised, masterKey string, nodes []oracle.NodeResult, flags string, equalEpochTrap bool) {
 	_, writableCount := oracle.ClassifyWritable(nodes)
+	src := nodeByAddr(nodes, masterKey)
+	if src == nil {
+		src = &oracle.NodeResult{Addr: masterKey, Role: "master", Writable: true}
+	}
+	monitorAddr := preferredSeedAddr(src, nodes, r.cfg.RedisAddrs)
+	if monitorAddr == "" {
+		monitorAddr = masterKey
+	}
+
+	// Dual-master before any MONITOR, including an address-form rewrite.
+	// IP and FQDN of one run_id are one master; two run_ids are not.
+	if writableCount >= 2 {
+		r.log.Info("apply heal plan",
+			"sentinel", c.Addr(),
+			"action", string(actionRefuse),
+			"reason", reasonDualMaster,
+			"advertised", advertised,
+			"oracle", masterKey,
+			"monitor", monitorAddr,
+			"writable_count", writableCount,
+		)
+		r.refuseApply(reasonDualMaster)
+		return
+	}
+	if writableCount <= 0 {
+		r.refuseApply(reasonNoWritable)
+		return
+	}
+
+	// Same node, seed is a hostname, Sentinel has the pod IP: rewrite the
+	// string only. FAILOVER would demote the writable we already have.
+	if addressFormMismatch(advertised, monitorAddr, src, nodes) {
+		r.healAddressForm(ctx, c, advertised, masterKey, monitorAddr)
+		return
+	}
+
 	safe, why := failoverPromoteSafe(advertised, masterKey, flags, nodes)
 	plan := planApplyHeal(writableCount, safe, why, equalEpochTrap, r.cfg.EqualEpochEscalate)
 	r.log.Info("apply heal plan",
@@ -388,6 +442,7 @@ func (r *Reconciler) healAPI(ctx context.Context, c sentinelHealClient, advertis
 		"failover_skip_reason", why,
 		"advertised", advertised,
 		"oracle", masterKey,
+		"monitor", monitorAddr,
 		"flags", flags,
 		"equal_epoch_trap", equalEpochTrap,
 		"writable_count", writableCount,
@@ -405,9 +460,8 @@ func (r *Reconciler) healAPI(ctx context.Context, c sentinelHealClient, advertis
 		return
 	}
 
-	oracleIP, oraclePort, err := endpointIPPort(masterKey)
-	if err != nil {
-		r.log.Error("heal aborted", "reason", "oracle_addr_unresolvable", "oracle", masterKey, "err", err)
+	if _, _, err := monitorHostPort(monitorAddr); err != nil {
+		r.log.Error("heal aborted", "reason", "oracle_addr_unparseable", "oracle", monitorAddr, "err", err)
 		r.metrics.Inc("heal_fail")
 		return
 	}
@@ -421,8 +475,8 @@ func (r *Reconciler) healAPI(ctx context.Context, c sentinelHealClient, advertis
 			r.log.Warn("FAILOVER failed, trying REMOVE+MONITOR", "err", err)
 		} else {
 			r.pause(2 * time.Second)
-			if r.verifyHeal(ctx, c, masterKey) {
-				r.log.Info("heal succeeded", "action", "SENTINEL FAILOVER", "sentinel", c.Addr(), "master", masterKey)
+			if r.verifyHeal(ctx, c, masterKey, monitorAddr) {
+				r.log.Info("heal succeeded", "action", "SENTINEL FAILOVER", "sentinel", c.Addr(), "master", monitorAddr)
 				r.metrics.Inc("heal_ok")
 				return
 			}
@@ -432,13 +486,144 @@ func (r *Reconciler) healAPI(ctx context.Context, c sentinelHealClient, advertis
 		r.log.Info("skip FAILOVER (promote guard)", "reason", why)
 	}
 
-	r.log.Info("apply heal starting", "action", "SENTINEL REMOVE+MONITOR", "sentinel", c.Addr(), "ip", oracleIP, "port", oraclePort)
-	_ = c.Remove(ctx, r.cfg.MasterName)
-	if err := c.Monitor(ctx, r.cfg.MasterName, oracleIP, oraclePort, r.cfg.Quorum); err != nil {
-		r.log.Error("heal failed", "action", "MONITOR", "err", err, "conf_fallback_needed", true)
+	restored, err := r.applyRemoveMonitor(ctx, c, advertised, monitorAddr)
+	if err != nil {
+		r.logMonitorFailed(err, restored, monitorAddr)
+		return
+	}
+	r.pause(1 * time.Second)
+	if r.verifyHeal(ctx, c, masterKey, monitorAddr) {
+		r.log.Info("heal succeeded", "action", "SENTINEL REMOVE+MONITOR", "sentinel", c.Addr(), "master", monitorAddr)
+		r.metrics.Inc("heal_ok")
+		return
+	}
+
+	// A hostname seed is only fixed when Sentinel echoes that hostname.
+	// RESET would let peers teach the pod IP back.
+	if plan.Reason == reasonLiveNonOracle || hostnameForm(monitorAddr) {
+		reason := plan.Reason
+		hint := ""
+		if hostnameForm(monitorAddr) {
+			reason = "hostname_not_advertised"
+			hint = "get-master-addr-by-name must return the seed hostname; set resolve-hostnames yes and announce-hostnames yes"
+		}
+		r.log.Error("heal failed", "sentinel", c.Addr(), "oracle", masterKey, "monitor", monitorAddr, "reason", reason, "hint", hint, "conf_fallback_needed", true)
 		r.metrics.Inc("heal_fail")
 		return
 	}
+
+	r.log.Info("apply heal starting", "action", "SENTINEL RESET", "sentinel", c.Addr())
+	_ = c.Reset(ctx, r.cfg.MasterName)
+	r.pause(2 * time.Second)
+	if r.verifyHeal(ctx, c, masterKey, monitorAddr) {
+		r.log.Info("heal succeeded", "action", "SENTINEL RESET", "sentinel", c.Addr(), "master", monitorAddr)
+		r.metrics.Inc("heal_ok")
+		return
+	}
+
+	r.log.Error("heal failed", "sentinel", c.Addr(), "oracle", masterKey, "monitor", monitorAddr, "conf_fallback_needed", true)
+	r.metrics.Inc("heal_fail")
+}
+
+// healAddressForm rewrites Sentinel's pointer from a pod IP to the seed
+// hostname for the same Redis. It does not FAILOVER and does not RESET.
+func (r *Reconciler) healAddressForm(ctx context.Context, c sentinelHealClient, advertised, masterKey, monitorAddr string) {
+	r.log.Info("apply heal plan",
+		"sentinel", c.Addr(),
+		"action", string(actionMonitor),
+		"reason", reasonAddressForm,
+		"failover_safe", false,
+		"advertised", advertised,
+		"oracle", masterKey,
+		"monitor", monitorAddr,
+	)
+	r.log.Info("skip FAILOVER (address form mismatch)", "advertised", advertised, "monitor", monitorAddr)
+	if _, _, err := monitorHostPort(monitorAddr); err != nil {
+		r.log.Error("heal aborted", "reason", "oracle_addr_unparseable", "oracle", monitorAddr, "err", err)
+		r.metrics.Inc("heal_fail")
+		return
+	}
+	r.lastHeal = time.Now()
+	r.metrics.Inc("heal_attempt")
+	restored, err := r.applyRemoveMonitor(ctx, c, advertised, monitorAddr)
+	if err != nil {
+		r.logMonitorFailed(err, restored, monitorAddr)
+		return
+	}
+	r.pause(1 * time.Second)
+	if r.verifyHeal(ctx, c, masterKey, monitorAddr) {
+		r.log.Info("heal succeeded", "action", "SENTINEL REMOVE+MONITOR", "sentinel", c.Addr(), "master", monitorAddr, "reason", reasonAddressForm)
+		r.metrics.Inc("heal_ok")
+		return
+	}
+	r.log.Error("heal failed",
+		"sentinel", c.Addr(),
+		"oracle", masterKey,
+		"monitor", monitorAddr,
+		"reason", "hostname_not_advertised",
+		"hint", "get-master-addr-by-name must return the seed hostname; set resolve-hostnames yes and announce-hostnames yes",
+		"conf_fallback_needed", true,
+	)
+	r.metrics.Inc("heal_fail")
+}
+
+func (r *Reconciler) logMonitorFailed(err error, restored bool, monitorAddr string) {
+	hint := ""
+	if hostnameForm(monitorAddr) {
+		hint = "sentinel requires resolve-hostnames yes to MONITOR a hostname"
+	}
+	r.log.Error("heal failed", "action", "MONITOR", "err", err, "restored_previous", restored, "conf_fallback_needed", !restored, "monitor", monitorAddr, "hint", hint)
+	r.metrics.Inc("heal_fail")
+}
+
+// applyRemoveMonitor is REMOVE + MONITOR of monitorAddr (no LookupIP).
+// If Sentinel rejects a hostname, the previous advertisement is written
+// back when REMOVE already dropped it, so a working IP entry is not left
+// removed and is not replaced by a different address.
+func (r *Reconciler) applyRemoveMonitor(ctx context.Context, c sentinelHealClient, previous, monitorAddr string) (restored bool, err error) {
+	host, port, err := monitorHostPort(monitorAddr)
+	if err != nil {
+		return false, err
+	}
+	r.log.Info("apply heal starting", "action", "SENTINEL REMOVE+MONITOR", "sentinel", c.Addr(), "host", host, "port", port)
+	removeErr := c.Remove(ctx, r.cfg.MasterName)
+	if removeErr != nil {
+		r.log.Warn("SENTINEL REMOVE failed", "err", removeErr)
+	}
+	if err := c.Monitor(ctx, r.cfg.MasterName, host, port, r.cfg.Quorum); err != nil {
+		removed := removeErr == nil
+		tryRestore := removed && hostnameForm(monitorAddr) && !addrEqual(previous, monitorAddr)
+		if tryRestore {
+			restored = r.restoreMonitor(ctx, c, previous)
+		}
+		// Hostname MONITOR was rejected and the previous entry is not back.
+		// Holding heal-cooldown here leaves Sentinel with no MONITOR entry
+		// for the whole cooldown. An IP-seed MONITOR failure still waits.
+		if tryRestore && !restored {
+			r.lastHeal = time.Time{}
+		}
+		return restored, err
+	}
+	r.rebindSentinelAuth(ctx, c)
+	return false, nil
+}
+
+func (r *Reconciler) restoreMonitor(ctx context.Context, c sentinelHealClient, previous string) bool {
+	host, port, err := monitorHostPort(previous)
+	if err != nil {
+		r.log.Error("cannot restore previous sentinel address", "advertised", previous, "err", err)
+		return false
+	}
+	if err := c.Monitor(ctx, r.cfg.MasterName, host, port, r.cfg.Quorum); err != nil {
+		r.log.Error("restore MONITOR failed", "addr", previous, "err", err)
+		return false
+	}
+	r.rebindSentinelAuth(ctx, c)
+	r.log.Warn("restored previous sentinel address after hostname MONITOR reject", "addr", previous)
+	return true
+}
+
+func (r *Reconciler) rebindSentinelAuth(ctx context.Context, c sentinelHealClient) {
 	authUser, authPass := sentinelMasterAuth(r.cfg.RedisUsername, r.cfg.RedisPassword, r.cfg.SentinelRedisUsername, r.cfg.SentinelRedisPassword)
 	for _, kv := range sentinelAuthAfterMonitor(authUser, authPass) {
 		if err := c.Set(ctx, r.cfg.MasterName, kv[0], kv[1]); err != nil {
@@ -447,54 +632,41 @@ func (r *Reconciler) healAPI(ctx context.Context, c sentinelHealClient, advertis
 			r.log.Info("re-bound sentinel " + kv[0] + " after MONITOR")
 		}
 	}
-	r.pause(1 * time.Second)
-	if r.verifyHeal(ctx, c, masterKey) {
-		r.log.Info("heal succeeded", "action", "SENTINEL REMOVE+MONITOR", "sentinel", c.Addr(), "master", masterKey)
-		r.metrics.Inc("heal_ok")
-		return
-	}
-
-	if plan.Reason == reasonLiveNonOracle {
-		r.log.Error("heal failed", "sentinel", c.Addr(), "oracle", masterKey, "conf_fallback_needed", true)
-		r.metrics.Inc("heal_fail")
-		return
-	}
-
-	r.log.Info("apply heal starting", "action", "SENTINEL RESET", "sentinel", c.Addr())
-	_ = c.Reset(ctx, r.cfg.MasterName)
-	r.pause(2 * time.Second)
-	if r.verifyHeal(ctx, c, masterKey) {
-		r.log.Info("heal succeeded", "action", "SENTINEL RESET", "sentinel", c.Addr(), "master", masterKey)
-		r.metrics.Inc("heal_ok")
-		return
-	}
-
-	r.log.Error("heal failed", "sentinel", c.Addr(), "oracle", masterKey, "conf_fallback_needed", true)
-	r.metrics.Inc("heal_fail")
 }
 
-func (r *Reconciler) verifyHeal(ctx context.Context, c sentinelHealClient, masterKey string) bool {
-	if !r.verifyAdvertised(ctx, c, masterKey) {
+func (r *Reconciler) verifyHeal(ctx context.Context, c sentinelHealClient, dialAddr, wantAds string) bool {
+	if !r.verifyAdvertised(ctx, c, wantAds) {
 		return false
 	}
 	// Ads matching is not enough; the Redis must still accept writes.
-	if err := r.probeOracleWritable(ctx, masterKey); err != nil {
-		r.log.Warn("heal verify write-probe failed", "err", err)
+	// Probe the address we required Sentinel to publish. dialAddr follows
+	// probe-map order and may be the pod IP, which fails a DNS-SAN handshake
+	// and reports a correct hostname MONITOR as heal_fail.
+	probe := healDialAddr(wantAds, dialAddr)
+	if err := r.probeOracleWritable(ctx, probe); err != nil {
+		r.log.Warn("heal verify write-probe failed", "err", err, "addr", probe)
 		return false
 	}
 	return true
 }
 
-func (r *Reconciler) verifyAdvertised(ctx context.Context, c sentinelHealClient, masterKey string) bool {
+func (r *Reconciler) verifyAdvertised(ctx context.Context, c sentinelHealClient, want string) bool {
 	host, port, err := c.GetMasterAddrByName(ctx, r.cfg.MasterName)
 	if err != nil {
 		r.log.Warn("heal verify get-master-addr failed", "err", err)
 		return false
 	}
-	after := fmt.Sprintf("%s:%d", host, port)
-	ok := sameRedisEndpoint(after, masterKey)
+	after := masterAddr(host, port)
+	hostname := hostnameForm(want)
+	var ok bool
+	if hostname {
+		// Pod IP of the same master is not success. TLS certs have DNS SANs.
+		ok = addrEqual(after, want)
+	} else {
+		ok = sameRedisEndpoint(after, want)
+	}
 	if !ok {
-		r.log.Warn("heal verify mismatch", "got", after, "expected", masterKey)
+		r.log.Warn("heal verify mismatch", "got", after, "expected", want, "hostname_form", hostname)
 	}
 	return ok
 }
@@ -569,7 +741,14 @@ func failoverPromoteSafe(advertised, masterKey, flags string, nodes []oracle.Nod
 	return false, "failover_may_promote_non_oracle"
 }
 
-func endpointIPPort(addr string) (ip string, port int, err error) {
+// endpointIPPort splits host:port for SENTINEL MONITOR.
+// A hostname is returned unchanged. LookupIP here used to publish the pod
+// IP, and TLS clients whose certs have DNS SANs only then failed the handshake.
+func endpointIPPort(addr string) (host string, port int, err error) {
+	return monitorHostPort(addr)
+}
+
+func monitorHostPort(addr string) (host string, port int, err error) {
 	host, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
 		return "", 0, err
@@ -578,19 +757,293 @@ func endpointIPPort(addr string) (ip string, port int, err error) {
 	if err != nil {
 		return "", 0, err
 	}
-	if parsed := net.ParseIP(host); parsed != nil {
-		return host, port, nil
+	if host == "" || port <= 0 {
+		return "", 0, fmt.Errorf("invalid redis addr %q", addr)
 	}
-	ips, err := net.LookupIP(host)
-	if err != nil || len(ips) == 0 {
-		return "", 0, fmt.Errorf("lookup %s: %w", host, err)
+	return host, port, nil
+}
+
+type divergeKind int
+
+const (
+	divergeNoop divergeKind = iota
+	divergeForm
+	divergeMaster
+)
+
+// classifyDiverge decides whether Sentinel's advertisement needs a heal.
+// Same resolved endpoint is a noop when the seed is an IP. When the seed is
+// a hostname, an advertised IP for that same node is an address-form mismatch.
+func classifyDiverge(advertised, masterKey, monitorAddr string, writable *oracle.NodeResult, nodes []oracle.NodeResult) divergeKind {
+	if monitorAddr == "" {
+		monitorAddr = masterKey
 	}
-	for _, cand := range ips {
-		if v := cand.To4(); v != nil {
-			return v.String(), port, nil
+	if addrEqual(advertised, monitorAddr) {
+		return divergeNoop
+	}
+	if addressFormMismatch(advertised, monitorAddr, writable, nodes) {
+		return divergeForm
+	}
+	// A probed run_id that differs is another Redis. Do not let DNS turn
+	// that into a noop or an address-form rewrite.
+	if differentProbedNode(advertised, writable, nodes) {
+		return divergeMaster
+	}
+	if sameRedisEndpoint(advertised, masterKey) || sameRedisEndpoint(advertised, monitorAddr) {
+		return divergeNoop
+	}
+	return divergeMaster
+}
+
+// addressFormMismatch is true when Sentinel advertises an IP (or any other
+// string) for the same Redis whose --redis-addrs seed is a hostname.
+func addressFormMismatch(advertised, monitorAddr string, writable *oracle.NodeResult, nodes []oracle.NodeResult) bool {
+	if !hostnameForm(monitorAddr) || addrEqual(advertised, monitorAddr) {
+		return false
+	}
+	// That hostname was probed as a different Redis. DNS must not rewrite
+	// this master onto the other name.
+	if differentProbedNode(monitorAddr, writable, nodes) {
+		return false
+	}
+	return sameOracleNode(advertised, writable, nodes)
+}
+
+// preferredSeedAddr is the address SENTINEL MONITOR must write for writable.
+// A hostname in seeds (--redis-addrs order) wins over an IP for that node.
+// The result is never a LookupIP of the seed. Probe-map order cannot change it.
+func preferredSeedAddr(writable *oracle.NodeResult, nodes []oracle.NodeResult, seeds []string) string {
+	if writable == nil {
+		return ""
+	}
+	ipSeed := ""
+	var unresolved []string
+	for _, seed := range seeds {
+		host, _, err := net.SplitHostPort(seed)
+		if err != nil {
+			continue
+		}
+		host = strings.TrimRight(host, ".")
+		if host == "" {
+			continue
+		}
+		if literalNodeMatch(seed, writable, nodes) {
+			if net.ParseIP(host) == nil {
+				return seed
+			}
+			if ipSeed == "" {
+				ipSeed = seed
+			}
+			continue
+		}
+		unresolved = append(unresolved, seed)
+	}
+	for _, seed := range unresolved {
+		if !resolvedNodeMatch(seed, writable, nodes) {
+			continue
+		}
+		host, _, err := net.SplitHostPort(seed)
+		if err != nil {
+			continue
+		}
+		host = strings.TrimRight(host, ".")
+		if host == "" {
+			continue
+		}
+		if net.ParseIP(host) == nil {
+			return seed
+		}
+		if ipSeed == "" {
+			ipSeed = seed
 		}
 	}
-	return ips[0].String(), port, nil
+	if ipSeed != "" {
+		return ipSeed
+	}
+	return writable.Addr
+}
+
+func literalNodeMatch(addr string, writable *oracle.NodeResult, nodes []oracle.NodeResult) bool {
+	if writable == nil || addr == "" {
+		return false
+	}
+	if addrEqual(addr, writable.Addr) {
+		return true
+	}
+	if writable.RunID == "" {
+		return false
+	}
+	for i := range nodes {
+		n := &nodes[i]
+		if n.Err != nil || n.RunID != writable.RunID {
+			continue
+		}
+		if addrEqual(addr, n.Addr) {
+			return true
+		}
+	}
+	return false
+}
+
+func resolvedNodeMatch(addr string, writable *oracle.NodeResult, nodes []oracle.NodeResult) bool {
+	if writable == nil || addr == "" || differentProbedNode(addr, writable, nodes) {
+		return false
+	}
+	if sameNodeAddr(addr, writable.Addr) {
+		return true
+	}
+	if writable.RunID == "" {
+		return false
+	}
+	for i := range nodes {
+		n := &nodes[i]
+		if n.Err != nil || n.RunID != writable.RunID {
+			continue
+		}
+		if sameNodeAddr(addr, n.Addr) {
+			return true
+		}
+	}
+	return false
+}
+
+// sameNodeAddr reports whether two host:port strings are the same endpoint
+// for seed selection and address-form detection.
+// sameRedisEndpoint (first A record only) stays the identity check for
+// dual-master and failoverPromoteSafe. A hostname with both A and AAAA must
+// still match an IPv6 advertisement here, or preferredSeedAddr falls back to
+// whichever probe address map iteration classified first.
+func sameNodeAddr(a, b string) bool {
+	if addrEqual(a, b) || sameRedisEndpoint(a, b) {
+		return true
+	}
+	return ipOverlap(a, b)
+}
+
+func sameOracleNode(advertised string, writable *oracle.NodeResult, nodes []oracle.NodeResult) bool {
+	if differentProbedNode(advertised, writable, nodes) {
+		return false
+	}
+	return literalNodeMatch(advertised, writable, nodes) || resolvedNodeMatch(advertised, writable, nodes)
+}
+
+// differentProbedNode is true when addr was probed with a run_id other than
+// writable's. run_id identifies the Redis; DNS must not merge two of them.
+func differentProbedNode(addr string, writable *oracle.NodeResult, nodes []oracle.NodeResult) bool {
+	if writable == nil || writable.RunID == "" || addr == "" {
+		return false
+	}
+	for i := range nodes {
+		n := &nodes[i]
+		if n.Err != nil || n.RunID == "" || !addrEqual(addr, n.Addr) {
+			continue
+		}
+		return n.RunID != writable.RunID
+	}
+	return false
+}
+
+func nodeByAddr(nodes []oracle.NodeResult, addr string) *oracle.NodeResult {
+	for i := range nodes {
+		if addrEqual(nodes[i].Addr, addr) {
+			return &nodes[i]
+		}
+	}
+	return nil
+}
+
+func hostnameForm(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		// "2001:db8::1:6379" is a missing-bracket IPv6, not a hostname.
+		return false
+	}
+	host = strings.TrimRight(host, ".")
+	return host != "" && net.ParseIP(host) == nil
+}
+
+func addrEqual(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	ah, ap, errA := net.SplitHostPort(a)
+	bh, bp, errB := net.SplitHostPort(b)
+	if errA != nil || errB != nil {
+		return hostsEqual(a, b)
+	}
+	pa, ea := strconv.Atoi(ap)
+	pb, eb := strconv.Atoi(bp)
+	if ea != nil || eb != nil || pa != pb {
+		return false
+	}
+	return hostsEqual(ah, bh)
+}
+
+func hostsEqual(a, b string) bool {
+	a = strings.TrimRight(a, ".")
+	b = strings.TrimRight(b, ".")
+	if a == "" || b == "" {
+		return false
+	}
+	if strings.EqualFold(a, b) {
+		return true
+	}
+	ipa, ipb := net.ParseIP(a), net.ParseIP(b)
+	return ipa != nil && ipb != nil && ipa.Equal(ipb)
+}
+
+// masterAddr is host:port with brackets around IPv6. fmt.Sprintf("%s:%d")
+// makes SplitHostPort fail, and hostnameForm then treats the pod IP as a name.
+func masterAddr(host string, port int) string {
+	return net.JoinHostPort(host, strconv.Itoa(port))
+}
+
+// healDialAddr is the address to dial for the lease and the post-heal write
+// probe. monitorAddr is the --redis-addrs seed; masterKey is whichever probe
+// map iteration classified first.
+func healDialAddr(monitorAddr, masterKey string) string {
+	if monitorAddr != "" {
+		return monitorAddr
+	}
+	return masterKey
+}
+
+// netLookupIP is LookupIP for seed and address-form matching. Tests replace
+// it to simulate A+AAAA. sameRedisEndpoint keeps calling net.LookupIP so
+// dual-master and failoverPromoteSafe stay on the first A record.
+var netLookupIP = net.LookupIP
+
+func ipOverlap(a, b string) bool {
+	ah, ap, errA := net.SplitHostPort(a)
+	bh, bp, errB := net.SplitHostPort(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	pa, ea := strconv.Atoi(ap)
+	pb, eb := strconv.Atoi(bp)
+	if ea != nil || eb != nil || pa != pb || pa <= 0 {
+		return false
+	}
+	for _, ia := range hostIPs(ah) {
+		for _, ib := range hostIPs(bh) {
+			if ia.Equal(ib) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hostIPs(host string) []net.IP {
+	host = strings.TrimRight(host, ".")
+	if ip := net.ParseIP(host); ip != nil {
+		return []net.IP{ip}
+	}
+	ips, err := netLookupIP(host)
+	if err != nil || len(ips) == 0 {
+		return nil
+	}
+	return ips
 }
 
 func sameRedisEndpoint(a, b string) bool {

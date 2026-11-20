@@ -122,6 +122,19 @@ writable never FAILOVER and never MONITOR.
 
 Keep client write-probes up until ads agree.
 
+## MONITOR address
+
+`SENTINEL MONITOR` writes the `--redis-addrs` seed for that Redis. A hostname
+seed is written as that hostname, not the pod IP from DNS. IP and hostname of
+one node are the same master (`run_id`); Sentinel showing the IP is an
+address-form mismatch: `REMOVE`+`MONITOR` the hostname, no `FAILOVER`.
+Success is `get-master-addr-by-name` returning that hostname, which needs
+Sentinel `resolve-hostnames yes` and `announce-hostnames yes`. If Sentinel
+rejects the hostname, the previous entry is restored and the tick is
+`heal_fail`. If that restore does not put an entry back, the next tick
+retries without waiting out `--heal-cooldown`. A seed that is already an
+IP is written as that IP.
+
 ## API heal failed (`conf_fallback_needed`)
 
 The process does not rewrite `sentinel.conf` and does not restart
@@ -129,7 +142,7 @@ Sentinel. If FAILOVER / MONITOR / RESET all fail, it logs
 `conf_fallback_needed` and leaves the rest to you:
 
 1. Backup `sentinel.conf`.
-2. `sentinel monitor <name> <writable-ip> <port> <quorum>`.
+2. `sentinel monitor <name> <seed-host> <port> <quorum>` with the same host as `--redis-addrs` (the hostname, when the seed is a hostname).
 3. Set `config-epoch` / `current-epoch` to `max(observed)+1`.
 4. Restore `auth-user` and `auth-pass` if you use ACL or a password.
 5. Restart Sentinel, then check ads and a write.
